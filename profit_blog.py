@@ -204,21 +204,61 @@ class ProfitOptimizedBlogSystem:
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0]
             
-            post_data = json.loads(text.strip())
+            # JSON 파싱 에러 방지: 특수문자 처리
+            text = text.strip()
+            
+            try:
+                post_data = json.loads(text)
+            except json.JSONDecodeError as je:
+                print(f"JSON parsing error: {je}")
+                # 파싱 실패 시 재시도
+                print("Retrying with simpler prompt...")
+                
+                simple_prompt = f"""Write a detailed blog post about: {topic['title']}
+                
+                Make it 2000 words, SEO-optimized, with HTML formatting.
+                Include: introduction, 5 main sections, conclusion.
+                
+                Return ONLY valid JSON (no special characters, no line breaks in strings):
+                {{"title": "...", "content": "...", "tags": ["tag1", "tag2"]}}
+                """
+                
+                retry_response = self.client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=simple_prompt
+                )
+                
+                retry_text = retry_response.text.strip()
+                if "```json" in retry_text:
+                    retry_text = retry_text.split("```json")[1].split("```")[0].strip()
+                
+                post_data = json.loads(retry_text)
+                
+                # 누락된 필드 추가
+                if 'meta_description' not in post_data:
+                    post_data['meta_description'] = topic['description'][:155]
+                if 'focus_keyword' not in post_data:
+                    post_data['focus_keyword'] = topic['primary_keyword']
+                if 'affiliate_products' not in post_data:
+                    post_data['affiliate_products'] = []
+                if 'estimated_read_time' not in post_data:
+                    post_data['estimated_read_time'] = '10 min'
             
             # 아마존 어소시에이트 링크 자동 생성
-            if self.amazon_tag:
+            if self.amazon_tag and post_data.get('affiliate_products'):
                 content = post_data['content']
-                for product in post_data.get('affiliate_products', []):
+                for product in post_data['affiliate_products']:
                     search_term = product['name'].replace(' ', '+')
                     affiliate_link = f'<a href="https://www.amazon.com/s?k={search_term}&tag={self.amazon_tag}" target="_blank" rel="nofollow">Check on Amazon</a>'
-                    content = content.replace(f"[{product['placeholder']}]", affiliate_link)
+                    content = content.replace(f"[{product.get('placeholder', '')}]", affiliate_link)
                 
                 post_data['content'] = content
             
             return post_data
         except Exception as e:
             print(f"Error generating post: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def get_unsplash_image(self, keywords):
