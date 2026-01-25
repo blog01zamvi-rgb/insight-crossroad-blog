@@ -379,15 +379,3 @@ class ProfitOptimizedBlogSystem:
 if __name__ == "__main__":
     blog_system = ProfitOptimizedBlogSystem()
     blog_system.run_daily_automation()
-```
-
----
-
-## 📄 **파일 2: requirements.txt**
-```
-google-generativeai
-google-api-python-client
-requests
-google-auth
-google-auth-oauthlib
-google-auth-httplib2
