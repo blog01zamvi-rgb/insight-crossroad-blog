@@ -3,9 +3,9 @@ import json
 import random
 from datetime import datetime
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
 
 class ProfitOptimizedBlogSystem:
     def __init__(self):
@@ -16,40 +16,38 @@ class ProfitOptimizedBlogSystem:
         self.blog_id = os.getenv('BLOGGER_BLOG_ID')
         
         # 제휴 마케팅 설정 (선택사항)
-        self.amazon_tag = os.getenv('AMAZON_ASSOCIATE_TAG', '')  # 아마존 어소시에이트 태그
+        self.amazon_tag = os.getenv('AMAZON_ASSOCIATE_TAG', '')
         
-        # Gemini 설정
-        genai.configure(api_key=self.gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        # Gemini 클라이언트 설정
+        self.client = genai.Client(api_key=self.gemini_api_key)
         
-        # 고수익 키워드 카테고리 (CPC가 높은 분야)
+        # 고수익 키워드 카테고리
         self.profitable_niches = {
             'finance': {
                 'keywords': ['credit card', 'insurance', 'investing', 'mortgage', 'cryptocurrency', 'personal finance'],
-                'cpc_level': 'high'  # $5-50
+                'cpc_level': 'high'
             },
             'technology': {
                 'keywords': ['AI tools', 'SaaS', 'cloud computing', 'cybersecurity', 'software review', 'tech gadgets'],
-                'cpc_level': 'medium-high'  # $2-10
+                'cpc_level': 'medium-high'
             },
             'health': {
                 'keywords': ['fitness', 'diet plan', 'supplements', 'mental health', 'weight loss', 'nutrition'],
-                'cpc_level': 'high'  # $3-20
+                'cpc_level': 'high'
             },
             'business': {
                 'keywords': ['productivity tools', 'marketing', 'entrepreneurship', 'remote work', 'side hustle'],
-                'cpc_level': 'medium-high'  # $2-15
+                'cpc_level': 'medium-high'
             },
             'education': {
                 'keywords': ['online courses', 'learning platforms', 'skill development', 'certifications'],
-                'cpc_level': 'medium'  # $1-8
+                'cpc_level': 'medium'
             }
         }
     
     def get_high_value_topics(self):
         """고수익 키워드 기반 트렌딩 주제 찾기"""
         
-        # 랜덤으로 수익성 높은 niche 선택
         niche = random.choice(list(self.profitable_niches.keys()))
         keywords = self.profitable_niches[niche]['keywords']
         
@@ -88,8 +86,12 @@ class ProfitOptimizedBlogSystem:
         }}
         """
         
-        response = self.model.generate_content(prompt)
         try:
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=prompt
+            )
+            
             text = response.text
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
@@ -100,7 +102,6 @@ class ProfitOptimizedBlogSystem:
             return topics_data
         except Exception as e:
             print(f"Error getting topics: {e}")
-            # 폴백 주제
             return {
                 "niche": "technology",
                 "topics": [{
@@ -173,8 +174,12 @@ class ProfitOptimizedBlogSystem:
         }}
         """
         
-        response = self.model.generate_content(prompt)
         try:
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=prompt
+            )
+            
             text = response.text
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
@@ -183,11 +188,10 @@ class ProfitOptimizedBlogSystem:
             
             post_data = json.loads(text.strip())
             
-            # 아마존 어소시에이트 링크 자동 생성 (예시)
+            # 아마존 어소시에이트 링크 자동 생성
             if self.amazon_tag:
                 content = post_data['content']
                 for product in post_data.get('affiliate_products', []):
-                    # 실제로는 Amazon Product API를 사용하거나 미리 정의된 링크 사용
                     search_term = product['name'].replace(' ', '+')
                     affiliate_link = f'<a href="https://www.amazon.com/s?k={search_term}&tag={self.amazon_tag}" target="_blank" rel="nofollow">Check on Amazon</a>'
                     content = content.replace(f"[{product['placeholder']}]", affiliate_link)
@@ -225,7 +229,7 @@ class ProfitOptimizedBlogSystem:
         return None
     
     def add_seo_schema(self, post_data):
-        """구조화된 데이터 (Schema.org) 추가 - SEO 향상"""
+        """구조화된 데이터 추가"""
         
         schema = f"""
         <script type="application/ld+json">
@@ -247,7 +251,7 @@ class ProfitOptimizedBlogSystem:
         return schema
     
     def publish_to_blogger(self, post_data, image_data):
-        """Blogger에 수익 최적화 포스트 발행"""
+        """Blogger에 포스트 발행"""
         try:
             # Featured 이미지
             image_html = ""
@@ -261,7 +265,7 @@ class ProfitOptimizedBlogSystem:
                 </div>
                 """
             
-            # AI 투명성 고지 (한국 AI 기본법 대응)
+            # AI 투명성 고지
             ai_disclosure = """
                 <div style="background: #f0f8ff; padding: 15px; margin: 20px 0; border-left: 4px solid #4a90e2; border-radius: 4px;">
                     <p style="margin: 0; font-size: 13px; color: #555;">
@@ -271,7 +275,7 @@ class ProfitOptimizedBlogSystem:
                 </div>
             """
             
-            # 독자 참여 요소 추가
+            # 독자 참여 요소
             engagement_footer = """
                 <div style="background: #f5f5f5; padding: 20px; margin-top: 30px; border-radius: 8px;">
                     <h3>What do you think?</h3>
@@ -283,7 +287,7 @@ class ProfitOptimizedBlogSystem:
             # Schema 추가
             schema = self.add_seo_schema(post_data)
             
-            # 전체 콘텐츠 조합 (AI 고지 포함)
+            # 전체 콘텐츠 조합
             full_content = schema + image_html + ai_disclosure + post_data['content'] + engagement_footer
             
             # Blogger API 호출
@@ -310,14 +314,13 @@ class ProfitOptimizedBlogSystem:
             return {'success': False, 'error': str(e)}
     
     def run_daily_automation(self):
-        """매일 실행되는 수익 최적화 자동화"""
+        """매일 실행되는 자동화"""
         print(f"💰 Starting PROFIT-OPTIMIZED automation at {datetime.now()}")
         
         # 1. 고수익 트렌딩 주제 찾기
         print("🎯 Finding high-value trending topics...")
         topics_data = self.get_high_value_topics()
         
-        # 랜덤으로 1개 선택 (commercial intent가 높은 것 우선)
         topics = topics_data['topics']
         topic = max(topics, key=lambda x: 1 if x.get('commercial_intent') == 'high' else 0)
         
@@ -326,7 +329,7 @@ class ProfitOptimizedBlogSystem:
         print(f"   Primary keyword: {topic['primary_keyword']}")
         print(f"   Commercial intent: {topic['commercial_intent']}")
         
-        # 2. 수익화 블로그 글 작성
+        # 2. 블로그 글 작성
         print("✍️ Generating monetized blog post...")
         post_data = self.generate_monetized_blog_post(topic)
         
@@ -355,7 +358,7 @@ class ProfitOptimizedBlogSystem:
         else:
             print(f"❌ Failed to publish: {result.get('error')}")
         
-        # 상세 로그 저장
+        # 로그 저장
         log_data = {
             'timestamp': datetime.now().isoformat(),
             'niche': topics_data['niche'],
@@ -369,7 +372,6 @@ class ProfitOptimizedBlogSystem:
             'commercial_intent': topic['commercial_intent']
         }
         
-        # 로그를 JSON Lines 형식으로 저장
         with open('profit_blog_log.jsonl', 'a') as f:
             f.write(json.dumps(log_data) + '\n')
         
