@@ -330,7 +330,15 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
                 'affiliate_products': [],
                 'estimated_read_time': '10 min'
             }
-            
+        # 🔥 이미지 플레이스홀더 자동 교체 🔥
+        content = content.replace(
+            '[IMAGE:', 
+            f'<img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800" alt="'
+        ).replace(
+            ']',
+            '" style="max-width:100%;height:auto;border-radius:8px;margin:20px 0;">'
+        )
+        post_data['content'] = content  # 업데이트
             return post_data
             
         except Exception as e:
