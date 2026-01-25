@@ -516,13 +516,14 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
             print("\n📮 Blogger API 호출 준비...")
             print(f"✓ Blog ID: {self.blog_id}")
             print(f"✓ Post Title: {post_data['title'][:50]}...")
-            post['status'] = 'DRAFT'
+            
             post = {
                 'kind': 'blogger#post',
                 'blog': {'id': self.blog_id},
                 'title': post_data['title'],
                 'content': full_content,
                 'labels': post_data.get('tags', [])
+                'status': 'DRAFT'
             }
             
             print("\n🚀 Blogger API 호출 중...")
