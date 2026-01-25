@@ -54,14 +54,6 @@ class ProfitOptimizedBlogSystem:
         """OAuth로 Blogger API 서비스 생성"""
         from google.auth.transport.requests import Request
         
-        # 디버깅: OAuth 값 확인
-        print(f"🔍 OAuth Debug:")
-        print(f"  client_id present: {bool(self.client_id)}")
-        print(f"  client_secret present: {bool(self.client_secret)}")
-        print(f"  refresh_token present: {bool(self.refresh_token)}")
-        if self.refresh_token:
-            print(f"  refresh_token starts with: {self.refresh_token[:5]}...")
-        
         # from_authorized_user_info에 필요한 정확한 딕셔너리 형식
         authorized_user_info = {
             'client_id': self.client_id,
@@ -151,24 +143,65 @@ class ProfitOptimizedBlogSystem:
             }
     
     def generate_monetized_blog_post(self, topic):
-        """수익화에 최적화된 블로그 글 작성 - 텍스트 기반"""
+        """수익화에 최적화된 블로그 글 작성 - 개선된 자연스러운 버전"""
+        
+        current_year = datetime.now().year
         
         prompt = f"""Write a comprehensive, SEO-optimized blog post about: {topic['title']}
 
 Target keyword: {topic['primary_keyword']}
+Current year: {current_year}
 
-Requirements:
-- 2000+ words
-- SEO optimized with keyword in title, headers, content
-- 5-7 main sections with <h2> headers
-- Use <h3> subheaders within sections
-- Include introduction and conclusion
-- Use HTML formatting: <p>, <strong>, <ul>, <li>, <table>
-- Conversational, engaging tone
-- Include product recommendations naturally
+CRITICAL REQUIREMENTS FOR NATURAL, HUMAN-LIKE WRITING:
 
-DO NOT use JSON. Write the blog post directly in HTML format.
-Start with an <h1> title, then write the full article.
+1. TONE & STYLE (Most Important!):
+   - Write like a knowledgeable friend, NOT a salesperson
+   - Use conversational language with contractions (don't, it's, I've)
+   - Vary sentence length (mix short 5-word sentences with longer 25-word ones)
+   - Include 2-3 personal touches: "In my experience...", "I've found..."
+   - Be honest - mention limitations, not just benefits
+   - AVOID buzzwords: "leverage", "landscape", "ecosystem", "robust", "game-changing", "revolutionary"
+
+2. AUTHENTICITY:
+   - Update ALL year references to {current_year}
+   - Include realistic numbers: "saves 3-4 hours/week" not "transforms everything"
+   - Mention actual pricing with $ amounts
+   - Add 1-2 minor drawbacks for each tool
+   - Use specific feature names
+
+3. STRUCTURE (VARIED - Not Formulaic!):
+   - Introduction: relatable problem (150 words)
+   - 5-7 tool sections - VARY THE FORMAT:
+     * Some brief (150 words)
+     * Some detailed (300 words)
+     * Mix formats: pros/cons, examples, comparisons
+   - Conclusion: practical next steps (100 words)
+
+4. IMAGES:
+   - Add [IMAGE: specific description] 4-5 times
+   - Example: [IMAGE: Screenshot of tool dashboard]
+   - Place strategically throughout article
+
+5. AVOID AI PATTERNS:
+   - DON'T repeat exact keyword more than 5 times
+   - DON'T make every section the same length
+   - DON'T use hype CTAs
+   - DO vary language and structure
+   - DO sound opinionated (professionally)
+
+6. HTML:
+   - <h2> for 5-7 main sections
+   - <h3> sparingly
+   - <p> for paragraphs
+   - <ul>/<li> sparingly
+   - <strong> only 3-4 times total
+
+7. LENGTH: 2000-2500 words
+
+EXAMPLE BAD: "In today's landscape, leveraging AI is game-changing."
+EXAMPLE GOOD: "Most small businesses waste 10 hours/week on repetitive tasks. AI tools like ChatGPT can handle about 60% of that - not perfect, but helpful."
+
+OUTPUT: Complete HTML. Start with <h1>. Include [IMAGE: desc] markers. Sound human and honest.
 """
         
         try:
@@ -185,13 +218,17 @@ Start with an <h1> title, then write the full article.
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0].strip()
             
-            # H1 태그에서 제목 추출
-            title = topic['title']
+            # H1 태그에서 제목 추출 및 연도 업데이트
+            title = topic['title'].replace('2024', str(current_year)).replace('2025', str(current_year))
+            
             if '<h1>' in content:
                 import re
                 h1_match = re.search(r'<h1>(.*?)</h1>', content, re.DOTALL)
                 if h1_match:
-                    title = h1_match.group(1).strip()
+                    title = h1_match.group(1).strip().replace('2024', str(current_year)).replace('2025', str(current_year))
+            
+            # 콘텐츠에서도 연도 업데이트
+            content = content.replace('2024', str(current_year)).replace('2025', str(current_year))
             
             # 메타 설명 생성
             meta_description = f"{topic['description'][:150]}..."
@@ -218,19 +255,23 @@ Start with an <h1> title, then write the full article.
             return None
     
     def get_unsplash_image(self, keywords):
-        """Unsplash에서 무료 이미지 가져오기"""
+        """Unsplash에서 무료 이미지 여러 개 가져오기"""
         try:
             query = " ".join(keywords[:2])
             url = f"https://api.unsplash.com/photos/random"
             params = {
                 'query': query,
                 'client_id': self.unsplash_api_key,
-                'orientation': 'landscape'
+                'orientation': 'landscape',
+                'count': 1  # 일단 1개만
             }
             
             response = requests.get(url, params=params)
             if response.status_code == 200:
                 data = response.json()
+                # 배열로 반환되므로 첫번째 항목 사용
+                if isinstance(data, list):
+                    data = data[0]
                 return {
                     'url': data['urls']['regular'],
                     'alt': data['alt_description'] or query,
