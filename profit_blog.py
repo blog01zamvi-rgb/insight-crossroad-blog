@@ -2,127 +2,103 @@ import os
 import json
 import random
 import re
-import time
+import sys # 시스템 종료 제어용
 from datetime import datetime
 import requests
 from google import genai
-from google.api_core import exceptions
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 
 class ProfitOptimizedBlogSystem:
     def __init__(self):
-        # [원본 그대로 유지] API 키 및 설정
+        # 환경 변수 로드 확인
         self.gemini_api_key = os.getenv('GEMINI_API_KEY')
         self.unsplash_api_key = os.getenv('UNSPLASH_API_KEY')
         self.blog_id = os.getenv('BLOGGER_BLOG_ID')
-        self.client_id = os.getenv('OAUTH_CLIENT_ID')
-        self.client_secret = os.getenv('OAUTH_CLIENT_SECRET')
-        self.refresh_token = os.getenv('OAUTH_REFRESH_TOKEN')
-        self.amazon_tag = os.getenv('AMAZON_ASSOCIATE_TAG', '')
         
+        if not self.gemini_api_key:
+            print("❌ 오류: GEMINI_API_KEY가 설정되지 않았습니다.")
+            sys.exit(1)
+
         self.client = genai.Client(api_key=self.gemini_api_key)
         
         self.profitable_niches = {
-            'finance': {'keywords': ['credit card', 'investing'], 'cpc_level': 'high'},
-            'technology': {'keywords': ['AI tools', 'SaaS'], 'cpc_level': 'medium-high'},
-            'health': {'keywords': ['fitness', 'nutrition'], 'cpc_level': 'high'},
-            'business': {'keywords': ['marketing', 'productivity'], 'cpc_level': 'medium-high'},
-            'education': {'keywords': ['online courses'], 'cpc_level': 'medium'}
+            'technology': ['AI', 'SaaS', 'Gadgets'],
+            'finance': ['Stocks', 'Crypto', 'Passive Income']
         }
 
     def get_blogger_service(self):
         from google.auth.transport.requests import Request
         authorized_user_info = {
-            'client_id': self.client_id, 'client_secret': self.client_secret,
-            'refresh_token': self.refresh_token, 'token_uri': 'https://oauth2.googleapis.com/token'
+            'client_id': os.getenv('OAUTH_CLIENT_ID'),
+            'client_secret': os.getenv('OAUTH_CLIENT_SECRET'),
+            'refresh_token': os.getenv('OAUTH_REFRESH_TOKEN'),
+            'token_uri': 'https://oauth2.googleapis.com/token'
         }
         creds = Credentials.from_authorized_user_info(authorized_user_info, scopes=['https://www.googleapis.com/auth/blogger'])
         creds.refresh(Request())
         return build('blogger', 'v3', credentials=creds)
 
-    def get_high_value_topics(self):
-        niche = random.choice(list(self.profitable_niches.keys()))
-        prompt = f"Find 3 trending high-value blog topics in {niche} for 2026. Format as JSON."
+    def run_daily_automation(self):
+        print(f"🚀 자동화 시작 시간: {datetime.now()}")
+        
+        # 1. 주제 생성
         try:
+            niche = random.choice(list(self.profitable_niches.keys()))
+            prompt = f"Find 1 trending blog topic for {niche} in 2026. Return ONLY JSON like {{\"title\": \"...\", \"keyword\": \"...\"}}"
+            
+            # 여기서 429 에러가 나면 바로 로그에 찍힐 겁니다
             response = self.client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+            print("✅ Gemini 주제 생성 응답 수신 성공")
+            
             text = response.text
             if "```json" in text: text = text.split("```json")[1].split("```")[0]
-            return json.loads(text.strip())
-        except:
-            return {"topics": [{"title": "Future Trends 2026", "primary_keyword": "trends", "secondary_keywords": [], "description": ""}]}
+            topic_data = json.loads(text.strip())
+            
+        except Exception as e:
+            print(f"❌ 1단계(주제생성) 실패: {str(e)}")
+            return
 
-    def generate_monetized_blog_post(self, topic):
-        """수정: 마커마다 각기 다른 이미지를 삽입하는 로직 적용"""
-        current_year = datetime.now().year
-        prompt = f"Write a professional SEO HTML blog post about {topic['title']}. Use [IMAGE: keyword] 4-5 times."
-
+        # 2. 본문 생성
         try:
-            response = self.client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
-            content = response.text.strip()
+            post_prompt = f"Write a long HTML blog post about {topic_data['title']}. Use [IMAGE: {topic_data['keyword']}] 3 times."
+            post_response = self.client.models.generate_content(model='gemini-2.0-flash', contents=post_prompt)
+            content = post_response.text
             if "```html" in content: content = content.split("```html")[1].split("```")[0].strip()
             
-            # 제목 및 연도 정리
-            title = topic['title'].replace('2024', str(current_year)).replace('2025', str(current_year))
-            content = content.replace('2024', str(current_year)).replace('2025', str(current_year))
-
-            # 🔥 [수정] 각 이미지 마커를 서로 다른 실시간 이미지로 교체
+            # 이미지 교체 (각기 다른 사진)
             image_markers = re.findall(r'\[IMAGE:.*?\]', content)
             for marker in image_markers:
-                keyword = marker.replace('[IMAGE:', '').replace(']', '').strip()
-                if not keyword: keyword = topic['primary_keyword']
-                
-                # Unsplash에서 개별 이미지 검색
-                img_info = self.get_unsplash_image([keyword])
-                if img_info:
-                    img_html = f"""
-                    <div style="margin: 40px auto; text-align: center;">
-                        <img src="{img_info['url']}" alt="{img_info['alt']}" style="width: 100%; height: auto; max-width: 100%; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-                        <p style="font-size: 13px; color: #888; margin-top: 10px;">{img_info['credit']}</p>
-                    </div>
-                    """
+                # Unsplash 호출
+                img_res = requests.get(f"https://api.unsplash.com/photos/random?query={topic_data['keyword']}&client_id={self.unsplash_api_key}")
+                if img_res.status_code == 200:
+                    img_url = img_res.json()['urls']['regular']
+                    img_html = f'<div style="text-align:center; margin:30px 0;"><img src="{img_url}" style="width:100%; max-width:1000px; height:auto; border-radius:12px;"></div>'
                     content = content.replace(marker, img_html, 1)
                 else:
                     content = content.replace(marker, '', 1)
+            
+            print("✅ 본문 생성 및 이미지 매핑 완료")
+        except Exception as e:
+            print(f"❌ 2단계(본문생성) 실패: {str(e)}")
+            return
 
-            return {'title': title, 'content': content, 'tags': topic.get('secondary_keywords', [])}
-        except: return None
-
-    def get_unsplash_image(self, keywords):
+        # 3. 발행 (데스크탑 반응형 적용)
         try:
-            url = f"https://api.unsplash.com/photos/random"
-            params = {'query': " ".join(keywords), 'client_id': self.unsplash_api_key, 'orientation': 'landscape'}
-            res = requests.get(url, params=params)
-            if res.status_code == 200:
-                data = res.json()
-                return {'url': data['urls']['regular'], 'alt': data['alt_description'], 'credit': f"Photo by {data['user']['name']} on Unsplash"}
-        except: return None
-
-    def publish_to_blogger(self, post_data):
-        """수정: 데스크탑에서도 시원하게 보이도록 반응형 래퍼 적용"""
-        try:
-            # max-width: 1000px로 데스크탑 가독성 확보, padding으로 모바일 여백 확보
-            full_content = f"""
-            <div style="width: 100%; max-width: 1000px; margin: 0 auto; padding: 0 20px; box-sizing: border-box; line-height: 1.8; font-family: sans-serif;">
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 25px;">🤖 AI-Optimized Content for {datetime.now().year}</div>
-                {post_data['content']}
+            # 반응형 래퍼 (데스크탑 가독성 확보)
+            final_html = f"""
+            <div style="width:100%; max-width:1000px; margin:0 auto; padding:0 20px; box-sizing:border-box; line-height:1.8;">
+                {content}
             </div>
             """
             service = self.get_blogger_service()
-            post_body = {'title': post_data['title'], 'content': full_content, 'labels': post_data['tags'], 'status': 'DRAFT'}
-            result = service.posts().insert(blogId=self.blog_id, body=post_body).execute()
-            return result.get('url')
+            service.posts().insert(
+                blogId=self.blog_id,
+                body={'title': topic_data['title'], 'content': final_html, 'status': 'DRAFT'}
+            ).execute()
+            print("🎉 모든 프로세스 완료! Blogger 드래프트 함을 확인하세요.")
         except Exception as e:
-            print(f"발행 에러: {e}")
-            return None
-
-    def run_daily_automation(self):
-        print("🚀 자동화 시작...")
-        topics_data = self.get_high_value_topics()
-        post_data = self.generate_monetized_blog_post(topics_data['topics'][0])
-        if post_data:
-            url = self.publish_to_blogger(post_data)
-            print(f"✅ 완료: {url}")
+            print(f"❌ 3단계(발행) 실패: {str(e)}")
 
 if __name__ == "__main__":
     blog_system = ProfitOptimizedBlogSystem()
