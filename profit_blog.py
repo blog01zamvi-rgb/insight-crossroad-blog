@@ -54,6 +54,21 @@ class ProfitOptimizedBlogSystem:
         """OAuth로 Blogger API 서비스 생성"""
         from google.auth.transport.requests import Request
         
+        print("\n" + "="*60)
+        print("🔍 OAuth 디버깅 시작")
+        print("="*60)
+        
+        # 환경변수 확인
+        print(f"✓ Client ID 존재: {bool(self.client_id)}")
+        print(f"✓ Client Secret 존재: {bool(self.client_secret)}")
+        print(f"✓ Refresh Token 존재: {bool(self.refresh_token)}")
+        print(f"✓ Blog ID: {self.blog_id}")
+        
+        if self.client_id:
+            print(f"✓ Client ID 시작: {self.client_id[:20]}...")
+        if self.refresh_token:
+            print(f"✓ Refresh Token 시작: {self.refresh_token[:20]}...")
+        
         # from_authorized_user_info에 필요한 정확한 딕셔너리 형식
         authorized_user_info = {
             'client_id': self.client_id,
@@ -62,16 +77,45 @@ class ProfitOptimizedBlogSystem:
             'token_uri': 'https://oauth2.googleapis.com/token'  # 필수!
         }
         
-        # Credentials 생성 (scopes는 별도 파라미터로)
-        creds = Credentials.from_authorized_user_info(
-            authorized_user_info,
-            scopes=['https://www.googleapis.com/auth/blogger']
-        )
+        print("\n🔐 Credentials 생성 중...")
         
-        # Access token 받기
-        creds.refresh(Request())
-        
-        return build('blogger', 'v3', credentials=creds)
+        try:
+            # Credentials 생성 (scopes는 별도 파라미터로)
+            creds = Credentials.from_authorized_user_info(
+                authorized_user_info,
+                scopes=['https://www.googleapis.com/auth/blogger']
+            )
+            print("✓ Credentials 객체 생성 성공")
+            
+            # Access token 받기
+            print("\n🔄 Access Token 갱신 중...")
+            creds.refresh(Request())
+            print("✓ Access Token 갱신 성공")
+            
+            if creds.token:
+                print(f"✓ Access Token 시작: {creds.token[:20]}...")
+            
+            print("\n🌐 Blogger API 서비스 빌드 중...")
+            service = build('blogger', 'v3', credentials=creds)
+            print("✓ Blogger API 서비스 생성 성공")
+            print("="*60 + "\n")
+            
+            return service
+            
+        except Exception as e:
+            print(f"\n❌ OAuth 에러 발생!")
+            print(f"에러 타입: {type(e).__name__}")
+            print(f"에러 메시지: {str(e)}")
+            
+            # 상세 에러 정보
+            if hasattr(e, 'error_details'):
+                print(f"에러 상세: {e.error_details}")
+            
+            import traceback
+            print("\n상세 스택 트레이스:")
+            traceback.print_exc()
+            print("="*60 + "\n")
+            raise
     
     def get_high_value_topics(self):
         """고수익 키워드 기반 트렌딩 주제 찾기"""
@@ -79,8 +123,13 @@ class ProfitOptimizedBlogSystem:
         niche = random.choice(list(self.profitable_niches.keys()))
         keywords = self.profitable_niches[niche]['keywords']
         
+        current_year = datetime.now().year
+        current_month = datetime.now().strftime("%B %Y")
+        
         prompt = f"""
         You are an expert SEO content strategist. Find 3 trending, high-value blog topics in the {niche} niche.
+        
+        IMPORTANT: Current date is {current_month}. Use {current_year} in titles, NOT 2024 or 2025.
         
         Focus on these profitable keywords: {', '.join(keywords)}
         
@@ -89,9 +138,10 @@ class ProfitOptimizedBlogSystem:
         - Commercial intent keywords (people ready to buy/click ads)
         - Evergreen + trending combination
         - Suitable for affiliate marketing and AdSense
+        - Use {current_year} in titles (e.g., "Best Tools for {current_year}")
         
         For each topic provide:
-        1. Title: Clickable, SEO-optimized (include power words like "best", "top", "guide", "review")
+        1. Title: Clickable, SEO-optimized with {current_year} (include "best", "top", "guide", "review")
         2. Primary keyword (exact match keyword to target)
         3. Secondary keywords (3-5 LSI keywords)
         4. Commercial intent level (high/medium/low)
@@ -127,13 +177,18 @@ class ProfitOptimizedBlogSystem:
                 text = text.split("```")[1].split("```")[0]
             
             topics_data = json.loads(text.strip())
+            
+            # 모든 제목에서 2024, 2025를 현재 연도로 강제 변경
+            for topic in topics_data['topics']:
+                topic['title'] = topic['title'].replace('2024', str(current_year)).replace('2025', str(current_year))
+            
             return topics_data
         except Exception as e:
             print(f"Error getting topics: {e}")
             return {
                 "niche": "technology",
                 "topics": [{
-                    "title": "Top 10 AI Tools for Productivity in 2026",
+                    "title": f"Top 10 AI Tools for Productivity in {current_year}",
                     "primary_keyword": "AI productivity tools",
                     "secondary_keywords": ["AI tools", "productivity software", "automation tools"],
                     "commercial_intent": "high",
@@ -338,11 +393,16 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
     def publish_to_blogger(self, post_data, image_data):
         """Blogger에 포스트 발행 (OAuth 사용) - 이미지 여러 개 삽입"""
         try:
+            print("\n" + "="*60)
+            print("📤 Blogger 발행 프로세스 시작")
+            print("="*60)
+            
             # 여러 이미지 가져오기 (3-4개)
             import time
             images = []
             if image_data:
                 images.append(image_data)
+                print(f"✓ Featured 이미지: {image_data['alt'][:50]}")
             
             # 추가 이미지 2-3개 더 가져오기
             for i in range(2):
@@ -370,6 +430,8 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
                 except Exception as e:
                     print(f"⚠️ Failed to get additional image {i+2}: {e}")
             
+            print(f"\n📊 총 {len(images)}개 이미지 준비됨")
+            
             # Featured 이미지 (맨 위)
             image_html = ""
             if images and images[0]:
@@ -395,6 +457,8 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
             
             # 콘텐츠를 섹션으로 나누고 중간에 이미지 삽입
             content = post_data['content']
+            
+            print("📝 콘텐츠 처리 중...")
             
             # H2 태그로 섹션 나누기
             import re
@@ -423,6 +487,7 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
                             </p>
                         </div>
                         """
+                        print(f"✓ 이미지 {image_index+1} 삽입 (섹션 {section_count} 뒤)")
                         image_index += 1
             
             # 독자 참여 요소
@@ -440,8 +505,17 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
             # 전체 콘텐츠 조합
             full_content = schema + image_html + ai_disclosure + enhanced_content + engagement_footer
             
+            print(f"✓ 최종 콘텐츠 길이: {len(full_content)} 문자")
+            print(f"✓ 제목: {post_data['title']}")
+            print(f"✓ 태그: {', '.join(post_data.get('tags', []))}")
+            
             # OAuth로 Blogger API 서비스 생성
+            print("\n🔐 OAuth 인증 시작...")
             service = self.get_blogger_service()
+            
+            print("\n📮 Blogger API 호출 준비...")
+            print(f"✓ Blog ID: {self.blog_id}")
+            print(f"✓ Post Title: {post_data['title'][:50]}...")
             
             post = {
                 'kind': 'blogger#post',
@@ -451,7 +525,12 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
                 'labels': post_data.get('tags', [])
             }
             
+            print("\n🚀 Blogger API 호출 중...")
             result = service.posts().insert(blogId=self.blog_id, body=post).execute()
+            
+            print("✅ 발행 성공!")
+            print(f"URL: {result.get('url')}")
+            print("="*60 + "\n")
             
             return {
                 'success': True,
@@ -460,7 +539,20 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
             }
             
         except Exception as e:
-            print(f"Error publishing to Blogger: {e}")
+            print(f"\n❌ Blogger 발행 에러!")
+            print(f"에러 타입: {type(e).__name__}")
+            print(f"에러 메시지: {e}")
+            
+            # HTTP 에러 상세 정보
+            if hasattr(e, 'resp'):
+                print(f"HTTP 상태 코드: {e.resp.status}")
+                print(f"응답 내용: {e.resp.get('content', 'N/A')}")
+            
+            import traceback
+            print("\n상세 스택 트레이스:")
+            traceback.print_exc()
+            print("="*60 + "\n")
+            
             return {'success': False, 'error': str(e)}
     
     def run_daily_automation(self):
