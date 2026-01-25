@@ -6,16 +6,21 @@ import requests
 from google import genai
 from google.genai import types
 from googleapiclient.discovery import build
+from google.oauth2.credentials import Credentials
 
 class ProfitOptimizedBlogSystem:
     def __init__(self):
         # API 키 설정
         self.gemini_api_key = os.getenv('GEMINI_API_KEY')
         self.unsplash_api_key = os.getenv('UNSPLASH_API_KEY')
-        self.blogger_api_key = os.getenv('BLOGGER_API_KEY')
         self.blog_id = os.getenv('BLOGGER_BLOG_ID')
         
-        # 제휴 마케팅 설정 (선택사항)
+        # OAuth 설정
+        self.client_id = os.getenv('OAUTH_CLIENT_ID')
+        self.client_secret = os.getenv('OAUTH_CLIENT_SECRET')
+        self.refresh_token = os.getenv('OAUTH_REFRESH_TOKEN')
+        
+        # 제휴 마케팅 설정
         self.amazon_tag = os.getenv('AMAZON_ASSOCIATE_TAG', '')
         
         # Gemini 클라이언트 설정
@@ -44,6 +49,19 @@ class ProfitOptimizedBlogSystem:
                 'cpc_level': 'medium'
             }
         }
+    
+    def get_blogger_service(self):
+        """OAuth로 Blogger API 서비스 생성"""
+        creds = Credentials(
+            token=None,
+            refresh_token=self.refresh_token,
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            scopes=['https://www.googleapis.com/auth/blogger']
+        )
+        
+        return build('blogger', 'v3', credentials=creds)
     
     def get_high_value_topics(self):
         """고수익 키워드 기반 트렌딩 주제 찾기"""
@@ -251,7 +269,7 @@ class ProfitOptimizedBlogSystem:
         return schema
     
     def publish_to_blogger(self, post_data, image_data):
-        """Blogger에 포스트 발행"""
+        """Blogger에 포스트 발행 (OAuth 사용)"""
         try:
             # Featured 이미지
             image_html = ""
@@ -290,8 +308,8 @@ class ProfitOptimizedBlogSystem:
             # 전체 콘텐츠 조합
             full_content = schema + image_html + ai_disclosure + post_data['content'] + engagement_footer
             
-            # Blogger API 호출
-            service = build('blogger', 'v3', developerKey=self.blogger_api_key)
+            # OAuth로 Blogger API 서비스 생성
+            service = self.get_blogger_service()
             
             post = {
                 'kind': 'blogger#post',
