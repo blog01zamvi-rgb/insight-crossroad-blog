@@ -58,7 +58,8 @@ class ProfitOptimizedBlogSystem:
         authorized_user_info = {
             'client_id': self.client_id,
             'client_secret': self.client_secret,
-            'refresh_token': self.refresh_token
+            'refresh_token': self.refresh_token,
+            'token_uri': 'https://oauth2.googleapis.com/token'  # 필수!
         }
         
         # Credentials 생성 (scopes는 별도 파라미터로)
