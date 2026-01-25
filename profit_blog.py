@@ -54,6 +54,14 @@ class ProfitOptimizedBlogSystem:
         """OAuth로 Blogger API 서비스 생성"""
         from google.auth.transport.requests import Request
         
+        # 디버깅: OAuth 값 확인
+        print(f"🔍 OAuth Debug:")
+        print(f"  client_id present: {bool(self.client_id)}")
+        print(f"  client_secret present: {bool(self.client_secret)}")
+        print(f"  refresh_token present: {bool(self.refresh_token)}")
+        if self.refresh_token:
+            print(f"  refresh_token starts with: {self.refresh_token[:5]}...")
+        
         # from_authorized_user_info에 필요한 정확한 딕셔너리 형식
         authorized_user_info = {
             'client_id': self.client_id,
