@@ -20,7 +20,7 @@ class ProfitOptimizedBlogSystem:
         
         # Gemini 설정
         genai.configure(api_key=self.gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-pro')
         
         # 고수익 키워드 카테고리 (CPC가 높은 분야)
         self.profitable_niches = {
