@@ -54,21 +54,21 @@ class ProfitOptimizedBlogSystem:
         """OAuth로 Blogger API 서비스 생성"""
         from google.auth.transport.requests import Request
         
-        # OAuth 정보를 딕셔너리로 구성
-        token_info = {
-            'refresh_token': self.refresh_token,
-            'token_uri': 'https://oauth2.googleapis.com/token',
+        # from_authorized_user_info에 필요한 정확한 딕셔너리 형식
+        authorized_user_info = {
             'client_id': self.client_id,
             'client_secret': self.client_secret,
-            'scopes': ['https://www.googleapis.com/auth/blogger']
+            'refresh_token': self.refresh_token
         }
         
-        # from_authorized_user_info로 Credentials 생성
-        creds = Credentials.from_authorized_user_info(token_info)
+        # Credentials 생성 (scopes는 별도 파라미터로)
+        creds = Credentials.from_authorized_user_info(
+            authorized_user_info,
+            scopes=['https://www.googleapis.com/auth/blogger']
+        )
         
-        # Access token이 없으면 refresh
-        if not creds.token or creds.expired:
-            creds.refresh(Request())
+        # Access token 받기
+        creds.refresh(Request())
         
         return build('blogger', 'v3', credentials=creds)
     
