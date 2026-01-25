@@ -143,65 +143,95 @@ class ProfitOptimizedBlogSystem:
             }
     
     def generate_monetized_blog_post(self, topic):
-        """수익화에 최적화된 블로그 글 작성 - 개선된 자연스러운 버전"""
+        """수익화에 최적화된 블로그 글 작성 - 사실 기반, 최신 정보"""
         
         current_year = datetime.now().year
+        current_month = datetime.now().strftime("%B %Y")
         
-        prompt = f"""Write a comprehensive, SEO-optimized blog post about: {topic['title']}
+        prompt = f"""You are writing a factual, accurate blog post about: {topic['title']}
 
 Target keyword: {topic['primary_keyword']}
+Current date: {current_month}
 Current year: {current_year}
 
-CRITICAL REQUIREMENTS FOR NATURAL, HUMAN-LIKE WRITING:
+🚨 CRITICAL RULES - VIOLATIONS ARE SERIOUS 🚨
 
-1. TONE & STYLE (Most Important!):
-   - Write like a knowledgeable friend, NOT a salesperson
-   - Use conversational language with contractions (don't, it's, I've)
-   - Vary sentence length (mix short 5-word sentences with longer 25-word ones)
-   - Include 2-3 personal touches: "In my experience...", "I've found..."
-   - Be honest - mention limitations, not just benefits
-   - AVOID buzzwords: "leverage", "landscape", "ecosystem", "robust", "game-changing", "revolutionary"
+1. FACTS ONLY - ZERO TOLERANCE FOR FABRICATION:
+   ❌ DO NOT invent statistics ("73% of users..." - NO!)
+   ❌ DO NOT make up pricing (if unsure, say "pricing available on their website")
+   ❌ DO NOT create fake testimonials or quotes
+   ❌ DO NOT guess at features - only mention what you KNOW exists
+   ❌ DO NOT invent case studies or success stories
+   ❌ DO NOT make claims like "saves 10 hours per week" without real data
+   
+   ✅ DO use general statements: "can help save time", "many users find helpful"
+   ✅ DO say "as of {current_year}" when mentioning anything time-sensitive
+   ✅ DO admit limitations: "specific features may vary", "check official website for current pricing"
+   ✅ DO focus on well-known, publicly documented facts
 
-2. AUTHENTICITY:
-   - Update ALL year references to {current_year}
-   - Include realistic numbers: "saves 3-4 hours/week" not "transforms everything"
-   - Mention actual pricing with $ amounts
-   - Add 1-2 minor drawbacks for each tool
-   - Use specific feature names
+2. CURRENT & ACCURATE INFORMATION:
+   - Update ALL years to {current_year}
+   - Use "as of {current_month}" for time-sensitive info
+   - Only mention tools/features that exist in {current_year}
+   - If a tool launched recently, say "recently launched" not specific dates unless certain
+   - Pricing: use "approximately" or "starting from" - never exact unless 100% sure
 
-3. STRUCTURE (VARIED - Not Formulaic!):
-   - Introduction: relatable problem (150 words)
-   - 5-7 tool sections - VARY THE FORMAT:
-     * Some brief (150 words)
-     * Some detailed (300 words)
-     * Mix formats: pros/cons, examples, comparisons
-   - Conclusion: practical next steps (100 words)
+3. VERIFIABLE CLAIMS ONLY:
+   ✅ "ChatGPT is developed by OpenAI" (known fact)
+   ✅ "Many businesses use AI for automation" (general truth)
+   ✅ "Google Workspace integrates with various AI tools" (known fact)
+   ❌ "87% of small businesses saw 40% productivity increase" (unless you have the source!)
+   ❌ "This tool reduced email time by 5.3 hours weekly" (too specific without source)
 
-4. IMAGES:
-   - Add [IMAGE: specific description] 4-5 times
-   - Example: [IMAGE: Screenshot of tool dashboard]
-   - Place strategically throughout article
+4. HONESTY WHEN UNCERTAIN:
+   - "This tool is known for [general capability]" (safe)
+   - "Features and pricing available on official website" (honest)
+   - "Many tools in this category offer similar functionality" (true)
+   - "Specific capabilities may vary by plan" (accurate)
 
-5. AVOID AI PATTERNS:
-   - DON'T repeat exact keyword more than 5 times
-   - DON'T make every section the same length
-   - DON'T use hype CTAs
-   - DO vary language and structure
-   - DO sound opinionated (professionally)
+5. TONE & STYLE (Still Natural, But Factual):
+   - Write conversationally but stick to facts
+   - Use "can", "may", "often", "typically" instead of absolute claims
+   - Include opinions on general usefulness, not fake metrics
+   - Be helpful without exaggerating
 
-6. HTML:
-   - <h2> for 5-7 main sections
-   - <h3> sparingly
-   - <p> for paragraphs
-   - <ul>/<li> sparingly
-   - <strong> only 3-4 times total
+6. STRUCTURE:
+   - Introduction: Real problem statement (150 words)
+   - 5-7 tool sections (focus on well-known tools you're certain about)
+   - For each tool:
+     * What it is (factual)
+     * General capabilities (known features only)
+     * Who it's for (general use cases)
+     * Note to check official site for current details
+   - Conclusion: Practical advice (100 words)
 
-7. LENGTH: 2000-2500 words
+7. HTML & IMAGES:
+   - Use <h2> for 5-7 sections
+   - Add [IMAGE: description] 3-4 times
+   - 2000-2500 words
+   - <p>, <ul>, <li> formatting
 
-EXAMPLE BAD: "In today's landscape, leveraging AI is game-changing."
-EXAMPLE GOOD: "Most small businesses waste 10 hours/week on repetitive tasks. AI tools like ChatGPT can handle about 60% of that - not perfect, but helpful."
+EXAMPLE OF GOOD (FACTUAL) WRITING:
 
-OUTPUT: Complete HTML. Start with <h1>. Include [IMAGE: desc] markers. Sound human and honest.
+❌ BAD (Fabricated):
+"According to a 2024 study, 82% of users saved exactly 7.3 hours per week using this tool, with ROI of 340% in the first month."
+
+✅ GOOD (Factual):
+"This tool helps automate routine tasks. Many users report time savings, though specific results vary by use case. Pricing and feature details are available on the official website."
+
+❌ BAD (Made up):
+"Launched in March 2024 with revolutionary AI that increased productivity by 500% for Fortune 500 companies."
+
+✅ GOOD (Honest):
+"This AI tool has gained popularity in {current_year} for its automation capabilities. It's used by various businesses, from small teams to larger organizations."
+
+REMEMBER:
+- If you don't know → Don't write it
+- If you're unsure → Use general language
+- If it's time-sensitive → Add "as of {current_year}"
+- Focus on established, well-known facts
+
+OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Include [IMAGE: desc] markers.
 """
         
         try:
@@ -227,7 +257,7 @@ OUTPUT: Complete HTML. Start with <h1>. Include [IMAGE: desc] markers. Sound hum
                 if h1_match:
                     title = h1_match.group(1).strip().replace('2024', str(current_year)).replace('2025', str(current_year))
             
-            # 콘텐츠에서도 연도 업데이트
+            # 콘텐츠에서 연도 업데이트
             content = content.replace('2024', str(current_year)).replace('2025', str(current_year))
             
             # 메타 설명 생성
@@ -306,16 +336,49 @@ OUTPUT: Complete HTML. Start with <h1>. Include [IMAGE: desc] markers. Sound hum
         return schema
     
     def publish_to_blogger(self, post_data, image_data):
-        """Blogger에 포스트 발행 (OAuth 사용)"""
+        """Blogger에 포스트 발행 (OAuth 사용) - 이미지 여러 개 삽입"""
         try:
-            # Featured 이미지
-            image_html = ""
+            # 여러 이미지 가져오기 (3-4개)
+            import time
+            images = []
             if image_data:
+                images.append(image_data)
+            
+            # 추가 이미지 2-3개 더 가져오기
+            for i in range(2):
+                try:
+                    time.sleep(1)  # API 제한 방지
+                    query = post_data.get('tags', ['business', 'technology'])[i % len(post_data.get('tags', ['business']))]
+                    url = f"https://api.unsplash.com/photos/random"
+                    params = {
+                        'query': query,
+                        'client_id': self.unsplash_api_key,
+                        'orientation': 'landscape'
+                    }
+                    response = requests.get(url, params=params)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if isinstance(data, list):
+                            data = data[0]
+                        images.append({
+                            'url': data['urls']['regular'],
+                            'alt': data['alt_description'] or query,
+                            'credit': f"Photo by {data['user']['name']} on Unsplash",
+                            'credit_link': data['user']['links']['html']
+                        })
+                        print(f"✅ Got additional image {i+2}")
+                except Exception as e:
+                    print(f"⚠️ Failed to get additional image {i+2}: {e}")
+            
+            # Featured 이미지 (맨 위)
+            image_html = ""
+            if images and images[0]:
+                img = images[0]
                 image_html = f"""
                 <div style="text-align: center; margin: 20px 0;">
-                    <img src="{image_data['url']}" alt="{image_data['alt']}" style="max-width: 100%; height: auto; border-radius: 8px;">
+                    <img src="{img['url']}" alt="{img['alt']}" style="max-width: 100%; height: auto; border-radius: 8px;">
                     <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                        <a href="{image_data['credit_link']}" target="_blank">{image_data['credit']}</a>
+                        <a href="{img['credit_link']}" target="_blank">{img['credit']}</a>
                     </p>
                 </div>
                 """
@@ -330,6 +393,38 @@ OUTPUT: Complete HTML. Start with <h1>. Include [IMAGE: desc] markers. Sound hum
                 </div>
             """
             
+            # 콘텐츠를 섹션으로 나누고 중간에 이미지 삽입
+            content = post_data['content']
+            
+            # H2 태그로 섹션 나누기
+            import re
+            sections = re.split(r'(<h2>.*?</h2>)', content)
+            
+            # 중간 이미지들을 섹션 사이에 삽입
+            enhanced_content = ""
+            image_index = 1  # 첫 번째 이미지는 이미 사용
+            section_count = 0
+            
+            for section in sections:
+                enhanced_content += section
+                
+                # H2 태그마다 섹션 카운트
+                if '<h2>' in section:
+                    section_count += 1
+                    
+                    # 3번째, 5번째 섹션 뒤에 이미지 삽입
+                    if section_count in [3, 5] and image_index < len(images) and images[image_index]:
+                        img = images[image_index]
+                        enhanced_content += f"""
+                        <div style="text-align: center; margin: 30px 0;">
+                            <img src="{img['url']}" alt="{img['alt']}" style="max-width: 100%; height: auto; border-radius: 8px;">
+                            <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                                <a href="{img['credit_link']}" target="_blank">{img['credit']}</a>
+                            </p>
+                        </div>
+                        """
+                        image_index += 1
+            
             # 독자 참여 요소
             engagement_footer = """
                 <div style="background: #f5f5f5; padding: 20px; margin-top: 30px; border-radius: 8px;">
@@ -343,7 +438,7 @@ OUTPUT: Complete HTML. Start with <h1>. Include [IMAGE: desc] markers. Sound hum
             schema = self.add_seo_schema(post_data)
             
             # 전체 콘텐츠 조합
-            full_content = schema + image_html + ai_disclosure + post_data['content'] + engagement_footer
+            full_content = schema + image_html + ai_disclosure + enhanced_content + engagement_footer
             
             # OAuth로 Blogger API 서비스 생성
             service = self.get_blogger_service()
