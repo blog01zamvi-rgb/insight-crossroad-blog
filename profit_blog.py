@@ -141,64 +141,25 @@ class ProfitOptimizedBlogSystem:
             }
     
     def generate_monetized_blog_post(self, topic):
-        """수익화에 최적화된 블로그 글 작성"""
+        """수익화에 최적화된 블로그 글 작성 - 텍스트 기반"""
         
-        prompt = f"""
-        You are a professional content writer and affiliate marketer. Write a comprehensive, SEO-optimized blog post.
-        
-        Topic: {topic['title']}
-        Primary Keyword: {topic['primary_keyword']}
-        Secondary Keywords: {', '.join(topic['secondary_keywords'])}
-        Affiliate Opportunity: {topic['affiliate_opportunity']}
-        
-        CRITICAL REQUIREMENTS:
-        
-        1. LENGTH: 1,800-2,500 words (longer = better SEO)
-        
-        2. STRUCTURE:
-           - Compelling introduction (hook the reader, mention the problem)
-           - 5-7 main sections with H2 headers
-           - Use H3 subheaders within sections
-           - Conclusion with clear call-to-action
-        
-        3. SEO OPTIMIZATION:
-           - Include primary keyword in: title, first paragraph, H2 headers, conclusion
-           - Naturally include secondary keywords throughout
-           - Use LSI keywords and synonyms
-           - Write for featured snippets (include lists, tables, Q&A format)
-        
-        4. MONETIZATION:
-           - Create natural "product recommendation" sections
-           - Include comparison tables where appropriate
-           - Add "Best [X] for [Y]" sections
-           - Use phrases like "Top picks", "Highly recommended", "Our favorite"
-           - Leave placeholder for affiliate links: [AFFILIATE_LINK_1], [AFFILIATE_LINK_2]
-        
-        5. ENGAGEMENT:
-           - Use conversational, friendly tone
-           - Include practical examples and use cases
-           - Add actionable tips readers can implement
-           - Create urgency where appropriate
-        
-        6. HTML FORMATTING:
-           - Use proper HTML tags: <h2>, <h3>, <p>, <strong>, <ul>, <li>
-           - Include <table> for comparisons
-           - Use <blockquote> for key takeaways
-        
-        Format as JSON:
-        {{
-            "title": "...",
-            "meta_description": "... (150-160 chars, include primary keyword)",
-            "content": "... (full HTML content with proper structure) ...",
-            "focus_keyword": "{topic['primary_keyword']}",
-            "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-            "affiliate_products": [
-                {{"name": "Product 1", "placeholder": "AFFILIATE_LINK_1"}},
-                {{"name": "Product 2", "placeholder": "AFFILIATE_LINK_2"}}
-            ],
-            "estimated_read_time": "8 min"
-        }}
-        """
+        prompt = f"""Write a comprehensive, SEO-optimized blog post about: {topic['title']}
+
+Target keyword: {topic['primary_keyword']}
+
+Requirements:
+- 2000+ words
+- SEO optimized with keyword in title, headers, content
+- 5-7 main sections with <h2> headers
+- Use <h3> subheaders within sections
+- Include introduction and conclusion
+- Use HTML formatting: <p>, <strong>, <ul>, <li>, <table>
+- Conversational, engaging tone
+- Include product recommendations naturally
+
+DO NOT use JSON. Write the blog post directly in HTML format.
+Start with an <h1> title, then write the full article.
+"""
         
         try:
             response = self.client.models.generate_content(
@@ -206,63 +167,40 @@ class ProfitOptimizedBlogSystem:
                 contents=prompt
             )
             
-            text = response.text
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
+            content = response.text.strip()
             
-            # JSON 파싱 에러 방지: 특수문자 처리
-            text = text.strip()
+            # HTML 코드 블록 제거
+            if "```html" in content:
+                content = content.split("```html")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
             
-            try:
-                post_data = json.loads(text)
-            except json.JSONDecodeError as je:
-                print(f"JSON parsing error: {je}")
-                # 파싱 실패 시 재시도
-                print("Retrying with simpler prompt...")
-                
-                simple_prompt = f"""Write a detailed blog post about: {topic['title']}
-                
-                Make it 2000 words, SEO-optimized, with HTML formatting.
-                Include: introduction, 5 main sections, conclusion.
-                
-                Return ONLY valid JSON (no special characters, no line breaks in strings):
-                {{"title": "...", "content": "...", "tags": ["tag1", "tag2"]}}
-                """
-                
-                retry_response = self.client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=simple_prompt
-                )
-                
-                retry_text = retry_response.text.strip()
-                if "```json" in retry_text:
-                    retry_text = retry_text.split("```json")[1].split("```")[0].strip()
-                
-                post_data = json.loads(retry_text)
-                
-                # 누락된 필드 추가
-                if 'meta_description' not in post_data:
-                    post_data['meta_description'] = topic['description'][:155]
-                if 'focus_keyword' not in post_data:
-                    post_data['focus_keyword'] = topic['primary_keyword']
-                if 'affiliate_products' not in post_data:
-                    post_data['affiliate_products'] = []
-                if 'estimated_read_time' not in post_data:
-                    post_data['estimated_read_time'] = '10 min'
+            # H1 태그에서 제목 추출
+            title = topic['title']
+            if '<h1>' in content:
+                import re
+                h1_match = re.search(r'<h1>(.*?)</h1>', content, re.DOTALL)
+                if h1_match:
+                    title = h1_match.group(1).strip()
             
-            # 아마존 어소시에이트 링크 자동 생성
-            if self.amazon_tag and post_data.get('affiliate_products'):
-                content = post_data['content']
-                for product in post_data['affiliate_products']:
-                    search_term = product['name'].replace(' ', '+')
-                    affiliate_link = f'<a href="https://www.amazon.com/s?k={search_term}&tag={self.amazon_tag}" target="_blank" rel="nofollow">Check on Amazon</a>'
-                    content = content.replace(f"[{product.get('placeholder', '')}]", affiliate_link)
-                
-                post_data['content'] = content
+            # 메타 설명 생성
+            meta_description = f"{topic['description'][:150]}..."
+            
+            # 태그 생성
+            tags = topic['secondary_keywords'][:5]
+            
+            post_data = {
+                'title': title,
+                'meta_description': meta_description,
+                'content': content,
+                'focus_keyword': topic['primary_keyword'],
+                'tags': tags,
+                'affiliate_products': [],
+                'estimated_read_time': '10 min'
+            }
             
             return post_data
+            
         except Exception as e:
             print(f"Error generating post: {e}")
             import traceback
