@@ -522,7 +522,7 @@ OUTPUT: Complete HTML blog post. Factual, current, honest. Start with <h1>. Incl
                 'blog': {'id': self.blog_id},
                 'title': post_data['title'],
                 'content': full_content,
-                'labels': post_data.get('tags', [])
+                'labels': post_data.get('tags', []),
                 'status': 'DRAFT'
             }
             
