@@ -1,0 +1,40 @@
+name: Insight Crossroad Auto Publisher
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 매일 오전 9시 (한국시간)
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  publish-post:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        
+    - name: Run profit blog system
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        UNSPLASH_API_KEY: ${{ secrets.UNSPLASH_API_KEY }}
+        BLOGGER_API_KEY: ${{ secrets.BLOGGER_API_KEY }}
+        BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+      run: |
+        python profit_blog.py
+        
+    - name: Commit log file
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add profit_blog_log.jsonl || true
+        git commit -m "Add blog publish log [skip ci]" || true
+        git push || true
