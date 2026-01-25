@@ -52,6 +52,8 @@ class ProfitOptimizedBlogSystem:
     
     def get_blogger_service(self):
         """OAuth로 Blogger API 서비스 생성"""
+        from google.auth.transport.requests import Request
+        
         creds = Credentials(
             token=None,
             refresh_token=self.refresh_token,
@@ -60,6 +62,12 @@ class ProfitOptimizedBlogSystem:
             client_secret=self.client_secret,
             scopes=['https://www.googleapis.com/auth/blogger']
         )
+        
+        # Refresh token으로 access token 받기
+        if creds and creds.expired:
+            creds.refresh(Request())
+        elif not creds.token:
+            creds.refresh(Request())
         
         return build('blogger', 'v3', credentials=creds)
     
