@@ -4,7 +4,7 @@ import random
 import re
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 from google import genai
 from googleapiclient.discovery import build
@@ -47,7 +47,14 @@ class ProfitOptimizedBlogSystem:
         return build('blogger', 'v3', credentials=creds)
 
     def run_daily_automation(self):
-        print(f"🚀 자동화 시작 시간: {datetime.now()}")
+        # 짧은 랜덤 지연 (5~30분) - 자동화 티 안 나게, 무료 플랜 고려
+        delay_minutes = random.randint(5, 30)
+        print(f"⏰ 랜덤 대기 시작: {delay_minutes}분")
+        print(f"🕐 예상 시작 시간: {datetime.now() + timedelta(minutes=delay_minutes)}")
+        time.sleep(delay_minutes * 60)
+        
+        print(f"\n🚀 자동화 실제 시작: {datetime.now()}")
+        print("=" * 60)
         
         # 1. 주제 생성
         try:
