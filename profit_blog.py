@@ -58,7 +58,7 @@ class ProfitOptimizedBlogSystem:
             Return ONLY JSON like {{"title": "...", "keyword": "...", "description": "..."}}"""
             
             response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp', 
+                model='gemini-2.5-flash', 
                 contents=prompt
             )
             print("✅ Gemini 주제 생성 응답 수신 성공")
@@ -94,7 +94,7 @@ Example image markers:
 Start with <h1> title, then write the full article."""
 
             post_response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp', 
+                model='gemini-2.5-flash', 
                 contents=post_prompt
             )
             content = post_response.text
