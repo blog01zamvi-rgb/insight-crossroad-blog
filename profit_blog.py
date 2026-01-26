@@ -5,10 +5,91 @@ import re
 import sys
 import time
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 import requests
 from google import genai
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
+
+class SecurityValidator:
+    """보안 검증 클래스"""
+    
+    @staticmethod
+    def sanitize_html(content):
+        """위험한 HTML 태그 제거"""
+        if not content:
+            return content
+        
+        # 위험한 태그/속성 목록
+        dangerous_patterns = [
+            r'<script[^>]*>.*?</script>',
+            r'<iframe[^>]*>.*?</iframe>',
+            r'javascript:',
+            r'onerror\s*=',
+            r'onclick\s*=',
+            r'onload\s*=',
+            r'<object[^>]*>',
+            r'<embed[^>]*>',
+        ]
+        
+        cleaned = content
+        for pattern in dangerous_patterns:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE | re.DOTALL)
+        
+        return cleaned
+    
+    @staticmethod
+    def validate_image_url(url):
+        """이미지 URL 안전성 검증"""
+        if not url:
+            return False
+        
+        try:
+            parsed = urlparse(url)
+            
+            # HTTPS만 허용
+            if parsed.scheme != 'https':
+                print(f"⚠️  보안: HTTP URL 차단됨")
+                return False
+            
+            # Unsplash 도메인만 허용
+            if 'unsplash.com' not in parsed.netloc and 'images.unsplash.com' not in parsed.netloc:
+                print(f"⚠️  보안: 알 수 없는 이미지 소스 차단됨")
+                return False
+            
+            return True
+        except Exception as e:
+            print(f"⚠️  보안: URL 검증 실패 - {e}")
+            return False
+    
+    @staticmethod
+    def validate_title(title):
+        """제목 검증 및 정제"""
+        if not title:
+            return "Untitled Post"
+        
+        # 길이 제한 (200자)
+        if len(title) > 200:
+            title = title[:200]
+        
+        # 위험한 문자 제거
+        title = re.sub(r'<[^>]+>', '', title)  # HTML 태그 제거
+        title = title.replace('javascript:', '')
+        title = title.replace('<script', '')
+        
+        return title.strip()
+    
+    @staticmethod
+    def validate_json_size(text, max_size=500000):
+        """응답 크기 검증 (500KB 제한)"""
+        if not text:
+            return False
+        
+        if len(text) > max_size:
+            print(f"⚠️  보안: 응답이 너무 큼 ({len(text)} bytes)")
+            return False
+        
+        return True
 
 class ProfitOptimizedBlogSystem:
     def __init__(self):
@@ -56,6 +137,9 @@ class ProfitOptimizedBlogSystem:
         print(f"\n🚀 자동화 실제 시작: {datetime.now()}")
         print("=" * 60)
         
+        # 보안 검증 인스턴스
+        validator = SecurityValidator()
+        
         # 1. 주제 생성
         try:
             niche = random.choice(list(self.profitable_niches.keys()))
@@ -75,6 +159,9 @@ class ProfitOptimizedBlogSystem:
             if "```json" in text: 
                 text = text.split("```json")[1].split("```")[0]
             topic_data = json.loads(text.strip())
+            
+            # 보안: 제목 검증
+            topic_data['title'] = validator.validate_title(topic_data.get('title', 'Untitled'))
             
             print(f"📝 주제: {topic_data['title']}")
             
@@ -162,12 +249,21 @@ Remember: Readers can tell when content is superficial. Provide genuine insights
                 model='gemini-2.5-flash', 
                 contents=post_prompt
             )
+            
+            # 보안: 응답 크기 검증
+            if not validator.validate_json_size(post_response.text):
+                print("❌ 2단계(본문생성) 실패: 응답이 너무 큼")
+                return
+            
             content = post_response.text
             
             if "```html" in content: 
                 content = content.split("```html")[1].split("```")[0].strip()
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0].strip()
+            
+            # 보안: HTML 콘텐츠 정제
+            content = validator.sanitize_html(content)
             
             print(f"✅ 본문 생성 완료 ({len(content)} 문자)")
             
@@ -212,6 +308,13 @@ Remember: Readers can tell when content is superficial. Provide genuine insights
                             data = data[0]
                         
                         img_url = data['urls']['regular']
+                        
+                        # 보안: 이미지 URL 검증
+                        if not validator.validate_image_url(img_url):
+                            print(f"   ⚠️  이미지 {i+1} URL 검증 실패")
+                            content = content.replace(marker, '', 1)
+                            continue
+                        
                         photographer = data['user']['name']
                         
                         img_html = f"""
