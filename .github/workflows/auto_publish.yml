@@ -2,7 +2,7 @@ name: Insight Crossroad Auto Publisher
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 매일 오전 9시 (한국시간)
+    - cron: '0 0 * * *'  # 매일 오전 9시 (UTC, 한국 09:00)
   workflow_dispatch:  # 수동 실행 가능
 
 jobs:
