@@ -27,7 +27,8 @@ class ProfitOptimizedBlogSystem:
             'technology': ['AI', 'SaaS', 'Gadgets', 'Software', 'Cloud Computing'],
             'finance': ['Stocks', 'Crypto', 'Passive Income', 'Investing', 'Personal Finance'],
             'business': ['Productivity', 'Marketing', 'Entrepreneurship', 'Remote Work'],
-            'health': ['Fitness', 'Nutrition', 'Mental Health', 'Wellness']
+            'health': ['Fitness', 'Nutrition', 'Mental Health', 'Wellness'],
+            'education': ['Online Courses', 'Learning Platforms', 'Certifications', 'Study Tools', 'E-learning']
         }
 
     def get_blogger_service(self):
@@ -76,22 +77,79 @@ class ProfitOptimizedBlogSystem:
 
         # 2. 본문 생성
         try:
-            post_prompt = f"""Write a comprehensive, professional blog post about: {topic_data['title']}
+            post_prompt = f"""You are an expert writer creating an in-depth, authoritative blog post about: {topic_data['title']}
 
-Requirements:
-- 2000+ words
-- Use proper HTML tags: <h1>, <h2>, <p>, <ul>, <li>
-- Include 3-5 [IMAGE: description] markers with DIFFERENT descriptions
-- Write in engaging, natural style
-- Current year is 2026
-- Focus on factual, helpful information
+🚨 CRITICAL RULES - STRICT COMPLIANCE REQUIRED:
 
-Example image markers:
-[IMAGE: modern workspace with laptop]
-[IMAGE: business meeting discussion]
-[IMAGE: analytics dashboard on screen]
+1. FACTS ONLY - ZERO TOLERANCE FOR FABRICATION:
+   ❌ DO NOT invent statistics, percentages, or numbers
+   ❌ DO NOT make up pricing unless you're certain
+   ❌ DO NOT create fake case studies or testimonials
+   ❌ DO NOT claim specific results without sources
+   ❌ DO NOT invent company names or product features
+   
+   ✅ DO use general, verifiable statements
+   ✅ DO say "as of 2026" for time-sensitive info
+   ✅ DO admit when info may vary: "prices vary", "check official website"
+   ✅ DO focus on well-known, established facts
 
-Start with <h1> title, then write the full article."""
+2. DEPTH & SUBSTANCE (NOT SUPERFICIAL):
+   - Explain WHY, not just WHAT
+   - Include practical, actionable advice
+   - Discuss trade-offs and limitations honestly
+   - Compare different approaches/options
+   - Address common questions and concerns
+   - Provide context and background
+   - Share real-world considerations
+   
+   Example BAD (shallow): "This tool is great for productivity."
+   Example GOOD (deep): "This tool excels at task automation, but requires initial setup time. Best for teams handling 50+ repetitive tasks weekly. Free plan limits features to 10 workflows, which may not suit larger operations."
+
+3. NATURAL, ENGAGING WRITING:
+   - Write like a knowledgeable professional, not a salesperson
+   - Use conversational tone with contractions (don't, it's, you'll)
+   - Vary sentence length (mix short and long sentences)
+   - NO AI clichés: "delve into", "landscape", "game-changing", "revolutionary"
+   - NO excessive enthusiasm or hype
+   - Include 1-2 personal observations: "In my experience...", "I've found..."
+
+4. SEO & STRUCTURE:
+   - 2500+ words for comprehensive coverage
+   - Use keyword "{topic_data.get('keyword', '')}" naturally 3-5 times
+   - Proper HTML: <h1>, <h2>, <h3>, <p>, <ul>, <li>
+   - Include 4-6 [IMAGE: specific description] markers with DIFFERENT descriptions
+   - Current year: 2026
+   
+5. CONTENT ORGANIZATION:
+   - Start with <h1> title
+   - Introduction: State the problem and what readers will learn (200 words)
+   - 5-7 main sections with <h2> headers
+   - Each section: 300-400 words with specific details
+   - Include subsections with <h3> where appropriate
+   - Conclusion: Summarize key takeaways and next steps (150 words)
+
+6. PROVIDE VALUE:
+   - Answer the "so what?" for every point
+   - Include specific examples and use cases
+   - Mention prerequisites or requirements
+   - Discuss both benefits AND limitations
+   - Help readers make informed decisions
+   - Add troubleshooting tips where relevant
+
+EXAMPLE OF DEPTH:
+
+❌ SHALLOW: "AI tools help with writing. They're fast and easy to use."
+
+✅ DEEP: "AI writing assistants can reduce draft time by handling initial content generation, but they require careful editing for accuracy and tone. For technical documentation, they excel at structuring information and maintaining consistency. However, creative writing still benefits from human nuance—AI may miss cultural context or emotional subtleties. Consider your content type: product descriptions work well with AI, while brand storytelling needs more human oversight."
+
+IMAGE MARKER EXAMPLES (use similar specific descriptions):
+[IMAGE: person reviewing data analytics on multiple monitors]
+[IMAGE: team collaborating on whiteboard with sticky notes]
+[IMAGE: close-up of hands typing on laptop keyboard]
+[IMAGE: modern office workspace with natural lighting]
+[IMAGE: smartphone displaying productivity app interface]
+
+Remember: Readers can tell when content is superficial. Provide genuine insights, honest assessments, and practical guidance. Quality over quantity, but deliver both."""
 
             post_response = self.client.models.generate_content(
                 model='gemini-2.5-flash', 
