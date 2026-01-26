@@ -274,11 +274,11 @@ Start with <h1> title, then write the full article."""
             service = self.get_blogger_service()
             result = service.posts().insert(
                 blogId=self.blog_id,
-                body={{
+                body={
                     'title': topic_data['title'], 
                     'content': final_html,
                     'labels': keywords[:5] if 'keywords' in locals() else []
-                }},
+                },
                 isDraft=True  # DRAFT 모드
             ).execute()
             
