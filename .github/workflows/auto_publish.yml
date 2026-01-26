@@ -33,11 +33,3 @@ jobs:
         OAUTH_REFRESH_TOKEN: ${{ secrets.OAUTH_REFRESH_TOKEN }}
       run: |
         python profit_blog.py
-        
-    - name: Commit log file
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add profit_blog_log.jsonl || true
-        git commit -m "Add blog publish log [skip ci]" || true
-        git push || true
