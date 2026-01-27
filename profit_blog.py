@@ -172,72 +172,95 @@ class ProfitOptimizedBlogSystem:
         # 2. 본문 생성
         try:
             # 도메인 결정
-            domain_map = {
-                'technology': 'enterprise SaaS and technology',
-                'finance': 'financial services and investment',
-                'business': 'business operations and strategy',
-                'health': 'health and wellness',
-                'education': 'online learning and education technology'
-            }
-            domain = domain_map.get(niche, 'business')
-            keyword = topic_data.get('keyword', '')
+            # 핵심 인사이트 정의
+            key_insights = """
+- 60% of enterprise AI tool licenses remain unused after the first quarter
+- The 5+ hour rule: Only adopt AI for tasks consuming 5+ hours per week per person
+- Implementation cost: 2-3 hours per workflow for initial setup
+- ROI breakeven point: 3 months for teams with 50+ monthly instances
+- Below 50 instances/month: Setup overhead typically exceeds time savings
+- Success pattern: Task identification first, then tool selection (not reversed)
+"""
             
-            post_prompt = f"""You are a senior industry practitioner writing for a professional audience in {domain}.
+            post_prompt = f"""You are a top-tier industry strategist and pragmatic operator writing in 2026.
 
-Task: Write an in-depth, publication-quality article on:
-{topic_data['title']}
+Your task is to write a high-impact, "Definitive Guide" style article.
 
-Readers:
-- Experienced professionals in {domain}
-- They understand basic concepts; they want nuanced, practical insight.
+**Target Context:**
+- **Title:** {topic_data['title']}
+- **Domain:** {domain}
+- **Length:** Minimum 1200 words. Achieve this by deep-diving into the *implications* and *mechanisms* of the problem, not by fluff.
+- **Current Era:** It is 2026. The initial AI hype cycle has crashed. We are in the "Era of Disillusionment & Real Utility." Write with this mature, skeptical perspective.
 
-Hard constraints:
-1. Do NOT invent specific statistics, prices, product features, or company claims.
-2. If exact data is unknown, say so explicitly and describe typical ranges or scenarios instead.
-3. Prioritize accuracy, clarity, and usefulness over word count. It's fine to be shorter than requested if needed.
+**The "Proprietary Insights" (Your Anchor Data):**
+Integrate the following specific data points. Treat these as "observed patterns from high-performing teams," not necessarily universal laws.
 
-Content rules:
-1. Open with a concrete problem, decision, or scenario – no generic "In today's world…" intros.
-2. For every important claim, explain:
-   - WHY it matters
-   - WHEN it applies (and when it doesn't)
-   - WHAT the trade-offs or risks are
-3. Include at least 2–3 realistic examples or mini-case studies.
-   - Hypothetical is fine, but mark them clearly as examples.
-4. Always cover:
-   - Implementation challenges
-   - Organisational/process impact
-   - Cost/benefit or effort/impact considerations
-5. When giving advice, use simple decision rules:
-   - "Choose A if X and Y"
-   - "Choose B if Z, or if you have constraint C"
+{key_insights}
 
-Style:
-1. Write like a human expert talking to peers, not marketing copy.
-2. Avoid AI/consulting clichés: "delve into", "landscape", "game-changing", "revolutionize", "unlock", "supercharge".
-3. Mix short, direct sentences with longer analytical ones.
-4. Use hedging correctly for uncertain topics: "generally", "often", "in most cases", "as of 2026 data is limited".
-5. It's acceptable to say "we don't know yet" and explain why.
+**Safety & Verification Protocol:**
+1. **Frame the Data:** Present numbers as "In our analysis of enterprise deployments..." or "We typically see that..." This ensures accuracy even if exact global stats vary.
+2. **2026 Context Injection:** Use your knowledge of the 2026 business landscape to explain *why* these patterns make sense (e.g., tightening budgets, mature market).
+3. **No Fabricated Facts:** Do not invent company names, fake studies, or specific dates not provided. Stick to the logic and scenarios.
 
-Structure:
-- Use <h1> for the title.
-- Use 4–6 <h2> sections with specific, descriptive headings (not "Introduction", "Conclusion").
-- Use <h3> only when it really helps structure a complex section.
-- Use proper HTML: <p> for paragraphs, <ul>/<ol> for lists, <li> for items, <strong> for emphasis.
-- Include 3–5 [IMAGE: very specific description] markers where a diagram/visual would help understanding.
-- Lists are allowed, but each list must be introduced and followed by explanatory prose.
+**Structure for Depth (The 1200+ Word Strategy):**
 
-SEO:
-- Naturally incorporate the keyword "{keyword}" 3-5 times throughout the article.
-- Use variations and related terms as well.
+1. **The Cold Hard Truth (The Hook):**
+   - Start immediately with the problem: Companies are buying AI backwards
+   - Use the "60% unused" metric as shocking evidence
+   - Set the 2026 context: Post-hype reality
 
-Length:
-- Aim for 1800–2300 words.
-- If there isn't enough solid content to reach that length without speculation, stop earlier.
+2. **The Root Cause Analysis (Why We Fail):**
+   - Analyze the psychology of "Tool-First" adoption
+   - Why do smart leaders make this mistake? (FOMO, board pressure, vendor hype)
+   - Explain the consequence: The "Trough of Disillusionment" when tools sit idle
 
-Current year: 2026. Write in present tense about the current state unless you're explicitly describing future scenarios.
+3. **The Protocol: The 5+ Hour Rule (The Solution):**
+   - Deeply unpack the methodology: "Identify repetitive cognitive tasks consuming 5+ hours/week"
+   - **Crucial:** Create a detailed *Hypothetical Audit Scenario*
+   - Example: Marketing Manager named 'Alex' audits her team's time to find these 5 hours
+   - This narrative adds realistic length and value
 
-Begin with the <h1> title and write the complete article:"""
+4. **The Litmus Test: Classification vs. Context:**
+   - Expand with concrete examples
+   - **Case Study A (Pass):** Simple inquiry categorization - explain why LLMs excel here
+   - **Case Study B (Fail):** Nuanced customer complaints - explain why LLMs hallucinate
+   - Recommend the "Knowledge Base" approach as the correct alternative
+
+5. **The ROI Blueprint (The Math):**
+   - Detail the "2-3 hours implementation" vs "3-month break-even"
+   - Walk through the math: Show that for low-volume teams (<50/month), setup time isn't worth it
+   - Be the honest accountant - include the numbers that don't work
+
+**Tone & Style:**
+- Professional, critical, empathetic
+- Use **bolding** for emphasis
+- Use bullet points for steps
+- **Strictly No Clichés:** Ban "game-changer", "unprecedented", "landscape", "unlock", "supercharge", "delve"
+- Mix short punchy sentences with longer analytical ones
+- It's acceptable to use strong opinions: "Most teams get this backwards"
+
+**HTML Format:**
+- Use <h1> for title
+- Use <h2> for main sections (aim for 5-6 distinct sections)
+- Use <h3> for subsections where appropriate
+- Use <p> for paragraphs
+- Use <strong> for emphasis within text
+- Use <ul>/<ol> and <li> for lists
+- Include 2-3 [IMAGE: specific, detailed description] markers where visuals would clarify concepts
+
+**SEO:**
+- Primary keyword: "{keyword}"
+- Use naturally 4-6 times throughout the article
+- Variations are acceptable (e.g., "AI tools" → "AI solutions", "automation tools")
+- Include keyword in introduction
+- If natural, include in 1-2 section headings
+
+**Final Output Requirement:**
+Produce a polished, ready-to-publish HTML article that feels like it was written by a human expert with 10+ years of experience, updated for the 2026 reality. Every paragraph should provide genuine value.
+
+Current year: 2026. Write in present tense.
+
+Begin with <h1> and write the complete article:"""
 
             # 강화된 프롬프트 + 안정적인 Flash 모델
             post_response = self.client.models.generate_content(
