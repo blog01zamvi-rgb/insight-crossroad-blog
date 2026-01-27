@@ -171,7 +171,17 @@ class ProfitOptimizedBlogSystem:
 
         # 2. 본문 생성
         try:
-            # 도메인 결정
+            # 도메인 맵핑
+            domain_map = {
+                'technology': 'enterprise SaaS and technology',
+                'finance': 'financial services and investment',
+                'business': 'business operations and strategy',
+                'health': 'health and wellness',
+                'education': 'online learning and education technology'
+            }
+            domain = domain_map.get(niche, 'business')
+            keyword = topic_data.get('keyword', '')
+            
             # 핵심 인사이트 정의
             key_insights = """
 - 60% of enterprise AI tool licenses remain unused after the first quarter
