@@ -171,82 +171,77 @@ class ProfitOptimizedBlogSystem:
 
         # 2. 본문 생성
         try:
-            post_prompt = f"""You are an expert writer creating an in-depth, authoritative blog post about: {topic_data['title']}
+            # 도메인 결정
+            domain_map = {
+                'technology': 'enterprise SaaS and technology',
+                'finance': 'financial services and investment',
+                'business': 'business operations and strategy',
+                'health': 'health and wellness',
+                'education': 'online learning and education technology'
+            }
+            domain = domain_map.get(niche, 'business')
+            keyword = topic_data.get('keyword', '')
+            
+            post_prompt = f"""You are a senior industry practitioner writing for a professional audience in {domain}.
 
-🚨 CRITICAL RULES - STRICT COMPLIANCE REQUIRED:
+Task: Write an in-depth, publication-quality article on:
+{topic_data['title']}
 
-1. FACTS ONLY - ZERO TOLERANCE FOR FABRICATION:
-   ❌ DO NOT invent statistics, percentages, or numbers
-   ❌ DO NOT make up pricing unless you're certain
-   ❌ DO NOT create fake case studies or testimonials
-   ❌ DO NOT claim specific results without sources
-   ❌ DO NOT invent company names or product features
-   
-   ✅ DO use general, verifiable statements
-   ✅ DO say "as of 2026" for time-sensitive info
-   ✅ DO admit when info may vary: "prices vary", "check official website"
-   ✅ DO focus on well-known, established facts
+Readers:
+- Experienced professionals in {domain}
+- They understand basic concepts; they want nuanced, practical insight.
 
-2. DEPTH & SUBSTANCE (NOT SUPERFICIAL):
-   - Explain WHY, not just WHAT
-   - Include practical, actionable advice
-   - Discuss trade-offs and limitations honestly
-   - Compare different approaches/options
-   - Address common questions and concerns
-   - Provide context and background
-   - Share real-world considerations
-   
-   Example BAD (shallow): "This tool is great for productivity."
-   Example GOOD (deep): "This tool excels at task automation, but requires initial setup time. Best for teams handling 50+ repetitive tasks weekly. Free plan limits features to 10 workflows, which may not suit larger operations."
+Hard constraints:
+1. Do NOT invent specific statistics, prices, product features, or company claims.
+2. If exact data is unknown, say so explicitly and describe typical ranges or scenarios instead.
+3. Prioritize accuracy, clarity, and usefulness over word count. It's fine to be shorter than requested if needed.
 
-3. NATURAL, ENGAGING WRITING:
-   - Write like a knowledgeable professional, not a salesperson
-   - Use conversational tone with contractions (don't, it's, you'll)
-   - Vary sentence length (mix short and long sentences)
-   - NO AI clichés: "delve into", "landscape", "game-changing", "revolutionary"
-   - NO excessive enthusiasm or hype
-   - Include 1-2 personal observations: "In my experience...", "I've found..."
+Content rules:
+1. Open with a concrete problem, decision, or scenario – no generic "In today's world…" intros.
+2. For every important claim, explain:
+   - WHY it matters
+   - WHEN it applies (and when it doesn't)
+   - WHAT the trade-offs or risks are
+3. Include at least 2–3 realistic examples or mini-case studies.
+   - Hypothetical is fine, but mark them clearly as examples.
+4. Always cover:
+   - Implementation challenges
+   - Organisational/process impact
+   - Cost/benefit or effort/impact considerations
+5. When giving advice, use simple decision rules:
+   - "Choose A if X and Y"
+   - "Choose B if Z, or if you have constraint C"
 
-4. SEO & STRUCTURE:
-   - 2500+ words for comprehensive coverage
-   - Use keyword "{topic_data.get('keyword', '')}" naturally 3-5 times
-   - Proper HTML: <h1>, <h2>, <h3>, <p>, <ul>, <li>
-   - Include 4-6 [IMAGE: specific description] markers with DIFFERENT descriptions
-   - Current year: 2026
-   
-5. CONTENT ORGANIZATION:
-   - Start with <h1> title
-   - Introduction: State the problem and what readers will learn (200 words)
-   - 5-7 main sections with <h2> headers
-   - Each section: 300-400 words with specific details
-   - Include subsections with <h3> where appropriate
-   - Conclusion: Summarize key takeaways and next steps (150 words)
+Style:
+1. Write like a human expert talking to peers, not marketing copy.
+2. Avoid AI/consulting clichés: "delve into", "landscape", "game-changing", "revolutionize", "unlock", "supercharge".
+3. Mix short, direct sentences with longer analytical ones.
+4. Use hedging correctly for uncertain topics: "generally", "often", "in most cases", "as of 2026 data is limited".
+5. It's acceptable to say "we don't know yet" and explain why.
 
-6. PROVIDE VALUE:
-   - Answer the "so what?" for every point
-   - Include specific examples and use cases
-   - Mention prerequisites or requirements
-   - Discuss both benefits AND limitations
-   - Help readers make informed decisions
-   - Add troubleshooting tips where relevant
+Structure:
+- Use <h1> for the title.
+- Use 4–6 <h2> sections with specific, descriptive headings (not "Introduction", "Conclusion").
+- Use <h3> only when it really helps structure a complex section.
+- Use proper HTML: <p> for paragraphs, <ul>/<ol> for lists, <li> for items, <strong> for emphasis.
+- Include 3–5 [IMAGE: very specific description] markers where a diagram/visual would help understanding.
+- Lists are allowed, but each list must be introduced and followed by explanatory prose.
 
-EXAMPLE OF DEPTH:
+SEO:
+- Naturally incorporate the keyword "{keyword}" 3-5 times throughout the article.
+- Use variations and related terms as well.
 
-❌ SHALLOW: "AI tools help with writing. They're fast and easy to use."
+Length:
+- Aim for 1800–2300 words.
+- If there isn't enough solid content to reach that length without speculation, stop earlier.
 
-✅ DEEP: "AI writing assistants can reduce draft time by handling initial content generation, but they require careful editing for accuracy and tone. For technical documentation, they excel at structuring information and maintaining consistency. However, creative writing still benefits from human nuance—AI may miss cultural context or emotional subtleties. Consider your content type: product descriptions work well with AI, while brand storytelling needs more human oversight."
+Current year: 2026. Write in present tense about the current state unless you're explicitly describing future scenarios.
 
-IMAGE MARKER EXAMPLES (use similar specific descriptions):
-[IMAGE: person reviewing data analytics on multiple monitors]
-[IMAGE: team collaborating on whiteboard with sticky notes]
-[IMAGE: close-up of hands typing on laptop keyboard]
-[IMAGE: modern office workspace with natural lighting]
-[IMAGE: smartphone displaying productivity app interface]
+Begin with the <h1> title and write the complete article:"""
 
-Remember: Readers can tell when content is superficial. Provide genuine insights, honest assessments, and practical guidance. Quality over quantity, but deliver both."""
-
+            # 강화된 프롬프트 + 안정적인 Flash 모델
             post_response = self.client.models.generate_content(
-                model='gemini-2.5-flash', 
+                model='gemini-2.5-flash',  # 안정적, 할당량 충분
                 contents=post_prompt
             )
             
