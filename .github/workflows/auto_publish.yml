@@ -1,7 +1,9 @@
 name: Insight Crossroad Auto Publisher
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * *'  # 매일 UTC 18:00 = 한국 새벽 3시
+  workflow_dispatch:  # 수동 실행도 가능
 
 jobs:
   publish-post:
@@ -34,37 +36,12 @@ jobs:
         python profit_blog.py
 ```
 
-8. **"Commit changes"** 클릭
-
-9. **"Commit changes"** 다시 클릭
-
 ---
 
-## STEP 4: 테스트
-
-### 실행하기
-
-1. **Repository 메인 페이지로**
-
-2. **"Actions"** 탭 클릭
-
-3. 왼쪽에서 **"Insight Crossroad Auto Publisher"** 클릭
-
-4. **"Run workflow"** 버튼 클릭 (오른쪽)
-
-5. **"Run workflow"** 다시 클릭 (초록색 버튼)
-
-6. **새로고침** (F5)
-
-7. **노란 점** 보이면 실행 중
-
-8. **클릭해서 로그 보기**
-
-### 성공 확인
-
-**로그에서 이런 메시지 보이면 성공:**
+## ⏰ **실행 시간:**
 ```
-✅ Claude 주제 생성 완료
-📝 주제: Why 70% of...
-✅ Claude 본문 생성 완료 (15234 문자)
-🎉 글 발행 완료!
+UTC 18:00 = 한국 새벽 3시
+
+매일 새벽 3시에 자동으로:
+- 글 1개 생성
+- Blogger 드래프트 발행
