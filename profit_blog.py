@@ -538,15 +538,6 @@ Output the complete, improved HTML article.
         padding: 1rem;
         border-bottom: 1px solid #f1f5f9;
     }
-    .author-note {
-        background: #fef3c7;
-        padding: 1.25rem;
-        border-radius: 8px;
-        font-size: 0.9375rem;
-        color: #92400e;
-        margin-top: 3rem;
-        border: 1px solid #fcd34d;
-    }
     .disclaimer {
         background: #fef2f2;
         padding: 1.25rem;
@@ -557,15 +548,6 @@ Output the complete, improved HTML article.
         border: 1px solid #fecaca;
     }
 </style>
-'''
-        
-        # Author signature for E-E-A-T
-        author_note = f'''
-<div class="author-note">
-    <strong>About the author:</strong> {persona['name']} writes about {category.lower().replace('_', ' ')} 
-    based on real-world experience. Have a different take? 
-    <a href="mailto:contact@insightcrossroad.com">Let's discuss</a>.
-</div>
 '''
         
         # Disclaimer for money mode
@@ -579,7 +561,7 @@ Output the complete, improved HTML article.
 </div>
 '''
         
-        final_html = f"{css}<div class='post-body'>{content}{author_note}{disclaimer}</div>"
+        final_html = f"{css}<div class='post-body'>{content}{disclaimer}</div>"
         
         # SEO-friendly tags (no mode indicator)
         tags = [category.replace('_', ' ')]
