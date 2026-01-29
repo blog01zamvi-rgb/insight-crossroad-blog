@@ -154,24 +154,33 @@ Context:
 - Keywords: {', '.join(keywords)}
 - Year: 2026 (post-hype era, focus on what actually works)
 
+**Avoid Overused Patterns:**
+- NOT every title should be "Why X% fail"
+- NOT every article needs "5-hour rule"
+- Vary your approach between:
+  * Investigation: "I analyzed X companies and discovered Y"
+  * Process: "The 3-step framework I use for X"
+  * Contrarian: "Why the standard advice on X is backwards"
+  * Diagnostic: "3 signs you need to rethink X"
+
 Requirements:
-1. Title must start with a number, question, or "Why/How"
-2. Include a specific problem or surprising data point
+1. Title can start with: number, question, "Why/How", or "The [X] that..."
+2. Include a specific problem or insight (NOT just percentages)
 3. Avoid hype words: "revolutionary", "game-changing", "unlock"
-4. Make it sound critical and practical, not promotional
+4. Make it sound analytical, not clickbait
 
 Examples of GOOD titles:
-- "Why 70% of Online Courses Fail: The 5-Hour Reality Check"
-- "The $200/Month SaaS Trap: When Free Tools Outperform"
-- "How Top Investors Lost 40% in 2025: Three Mistakes to Avoid"
+- "The SaaS Audit That Saved Us $47K: A Step-by-Step Breakdown"
+- "Why Your Team Needs Fewer Tools, Not Better Ones"
+- "3 Automation Mistakes That Cost More Than They Save"
 
 Examples of BAD titles:
-- "The Future of AI in Education"
-- "Revolutionizing Your Investment Strategy"
-- "10 Amazing Tools You Must Try"
+- "Why 85% of Companies Fail at X" (overused pattern)
+- "The Future of AI in Education" (generic)
+- "10 Amazing Tools You Must Try" (listicle)
 
 Return ONLY valid JSON (no markdown, no explanation):
-{{"title": "specific contrarian title", "keyword": "main keyword from list", "description": "one sentence hook"}}"""
+{{"title": "specific analytical title", "keyword": "main keyword from list", "description": "one sentence hook"}}"""
             
             print("📝 Claude로 주제 생성 중...")
             topic_response = self.claude_client.messages.create(
@@ -255,24 +264,37 @@ Title: {topic_data['title']}
 **Critical Data Points to Integrate:**
 {key_insights}
 
+**CRITICAL - Avoid Formulaic Patterns:**
+Do NOT fall into the same structure every time:
+- NOT every article needs to mention "5-hour rule" 
+- NOT every article needs hidden costs section
+- NOT every article needs Before/After comparison
+- Vary your approach based on the title
+
 **Strict Rules:**
 1. BANNED WORDS: "landscape", "revolutionize", "unlock", "game-changing", "unprecedented", "delve", "robust", "leverage"
 2. NO generic openings like "In today's world..." or "The rise of..."
 3. START with a specific problem, surprising stat, or contrarian opinion
-4. Include 2-3 realistic scenarios or case examples (hypothetical is fine, but mark as "example" or "typical scenario")
+4. Include 2-3 realistic scenarios (mark as "typical example" or "common pattern")
 5. Discuss what DOESN'T work, not just what works
 6. Admit limitations and trade-offs
 
 **Data Accuracy Rules (CRITICAL):**
-- When citing statistics, use ranges: "30-50% (up to 70% in some cases)"
-- Add qualifiers: "studies suggest", "research shows", "industry data indicates", "typically", "often"
-- For hypothetical examples, say: "realistic example", "typical scenario", "common pattern I see"
-- Never claim "I consulted with" or "in my experience with specific company X" unless marking as hypothetical
-- When uncertain, use hedging: "can take", "often requires", "generally"
+- NEVER use exact percentages without qualification (e.g. NOT "83% of companies")
+- Instead use: "research shows", "analyses indicate", "common pattern", "significant majority"
+- Use ranges with context: "30-50% in typical audits (up to 70% in extreme cases)"
+- For examples with numbers, say: "in a typical scenario", "realistic example"
+- NO claims like "I consulted with" or "in my experience at Company X" unless clearly marked as hypothetical
 
-**Structure:**
+**Structure - Choose Based on Title:**
+If title is investigative ("I analyzed X"): Show methodology, findings, insights
+If title is process ("3-step framework"): Show steps with examples, explain why each works
+If title is contrarian ("Why X is backwards"): Show conventional approach, problems, better way
+If title is diagnostic ("Signs you need X"): Show symptoms, root causes, solutions
+
+Always include:
 - <h1> for title
-- 4-6 <h2> sections with specific, opinionated headings
+- 4-6 <h2> sections (vary the structure, not always the same flow)
 - Use <h3> for subsections
 - Include 2-3 [IMAGE: specific visual description] markers
 - 1200-1800 words
@@ -281,14 +303,14 @@ Title: {topic_data['title']}
 - Write for skeptical professionals who hate BS
 - Mix short punchy sentences with longer analytical ones
 - Use "you" to speak directly to reader
-- Strong opinions are good: "Most people get this wrong"
+- Strong opinions are good, but back them up
 - Use keyword "{keyword}" naturally 3-5 times
 
 **End with a brief caveat paragraph:**
-"What this doesn't cover: [mention 1-2 exceptions or edge cases, e.g., security/compliance tools may have different ROI calculus]"
+"What this doesn't cover: [mention 1-2 exceptions or edge cases]"
 
 **Context:**
-Current year: 2026. The hype cycle is over. Focus on what actually works based on real-world data.
+Current year: 2026. The hype cycle is over. Focus on what actually works based on observable patterns and data.
 
 Write the complete article starting with <h1>:"""
 
