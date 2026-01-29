@@ -572,9 +572,6 @@ Output the complete, improved HTML article.
         }
         tags.extend(random.sample(tag_map.get(CURRENT_MODE, []), 2))
         
-        # Add year for freshness signal
-        tags.append(str(datetime.now().year))
-        
         body = {
             'title': title,
             'content': final_html,
