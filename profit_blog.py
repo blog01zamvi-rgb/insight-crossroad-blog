@@ -15,14 +15,13 @@ from anthropic import Anthropic
 # MODE: 'APPROVAL' (승인용: 일상/정보) vs 'MONEY' (수익용: 고단가/리뷰)
 CURRENT_MODE = 'APPROVAL' 
 
-# MODEL: 최신 Claude 모델 (비용 대비 성능 최적)
-CLAUDE_MODEL_NAME = "claude-3-5-sonnet-20240620"
+# MODEL: 사용자가 요청한 원본 모델명으로 복구
+CLAUDE_MODEL_NAME = "claude-sonnet-4-20250514"
 
 class SecurityValidator:
     """보안 및 데이터 검증 클래스"""
     @staticmethod
     def sanitize_html(content):
-        """악성 스크립트 제거"""
         if not content: return ""
         dangerous = [
             r'<script[^>]*>.*?</script>', r'<iframe[^>]*>.*?</iframe>',
@@ -35,7 +34,6 @@ class SecurityValidator:
 
     @staticmethod
     def validate_image_url(url):
-        """이미지 URL 유효성 검사"""
         if not url: return False
         try:
             parsed = urlparse(url)
@@ -44,7 +42,6 @@ class SecurityValidator:
 
 class ProBlogBot:
     def __init__(self):
-        # API 키 로드
         self.anthropic_key = os.getenv('ANTHROPIC_API_KEY')
         self.unsplash_key = os.getenv('UNSPLASH_API_KEY')
         self.blog_id = os.getenv('BLOGGER_BLOG_ID')
@@ -86,27 +83,19 @@ class ProBlogBot:
 
     def step_1_planner(self, category, keyword):
         """1단계: 글 기획 (뼈대 만들기)"""
-        print(f"🧠 [1/4] Planning content for '{keyword}' ({CURRENT_MODE} Mode)...")
+        print(f"🧠 [1/4] Planning content for '{keyword}'...")
         
-        if CURRENT_MODE == 'APPROVAL':
-            role = "You are a helpful, empathetic life coach and tech enthusiast."
-            goal = "Focus on personal experience (E-E-A-T), helpfulness, and engagement."
-        else:
-            role = "You are a sharp, analytical business consultant."
-            goal = "Focus on feature comparison, pros/cons, and persuasive recommendations."
-
         prompt = f"""
-        {role}
-        Task: Create a detailed outline for a blog post about "{keyword}".
-        Target Audience: US-based English speakers.
-        Goal: {goal}
+        You are a senior content strategist.
+        Task: Create a blog outline for "{keyword}".
+        Target: US-based audience.
+        Mode: {'Helpful/Educational' if CURRENT_MODE == 'APPROVAL' else 'Commercial/Review'}.
         
-        Return JSON format:
+        Return JSON format ONLY:
         {{
-            "title": "Catchy Title Here",
-            "hook": "Opening sentence concept",
-            "sections": ["Section 1 Header", "Section 2 Header", "Section 3 Header"],
-            "image_keywords": ["keyword1", "keyword2"]
+            "title": "Catchy Title",
+            "sections": ["Header 1", "Header 2", "Header 3"],
+            "image_keywords": ["visual keyword 1", "visual keyword 2"]
         }}
         """
         
@@ -116,7 +105,6 @@ class ProBlogBot:
                 messages=[{"role": "user", "content": prompt}]
             )
             text = msg.content[0].text
-            # JSON 파싱
             if "```json" in text: text = text.split("```json")[1].split("```")[0]
             elif "```" in text: text = text.split("```")[1].split("```")[0]
             return json.loads(text.strip())
@@ -128,43 +116,32 @@ class ProBlogBot:
         """2단계: 본문 작성 (HTML 포맷)"""
         print(f"✍️ [2/4] Writing content...")
         
-        system = "You are a professional native English blogger. You write in valid HTML format."
-        
         prompt = f"""
-        Write a full blog post based on this plan:
+        Write a blog post based on:
         Title: {plan['title']}
         Sections: {', '.join(plan['sections'])}
         
-        **CRITICAL INSTRUCTIONS:**
-        1. **Language:** Native American English.
-        2. **Format:** Use HTML tags (<h2>, <h3>, <p>, <ul>, <li>, <table>).
-        3. **Images:** Insert exactly 2 markers: [IMAGE: {plan['image_keywords'][0]}] and [IMAGE: {plan['image_keywords'][1]}] at appropriate places.
-        4. **Length:** 1500+ words.
-        5. **No Fluff:** Do not use "In conclusion", "Delve", "Landscape".
-        
-        **Mode Specifics:**
-        - If making a claim, say "Research suggests" or "In my experience".
-        - If comparing tools, use a <table>.
-        
-        Output ONLY the HTML <body> content.
+        **Instructions:**
+        1. Language: Native American English.
+        2. Format: HTML <body> content only (use <h2>, <p>, <ul>, <table>).
+        3. Insert Markers: Place [IMAGE: {plan['image_keywords'][0]}] and [IMAGE: {plan['image_keywords'][1]}] naturally.
+        4. Style: {'Personal & Empathetic' if CURRENT_MODE == 'APPROVAL' else 'Professional & Analytical'}.
+        5. Length: 1500+ words.
         """
         
         msg = self.claude.messages.create(
-            model=CLAUDE_MODEL_NAME, max_tokens=4000, system=system,
+            model=CLAUDE_MODEL_NAME, max_tokens=4000,
             messages=[{"role": "user", "content": prompt}]
         )
         return self.validator.sanitize_html(msg.content[0].text)
 
     def step_3_designer(self, content):
-        """3단계: 이미지 검색 및 삽입 (Unsplash)"""
-        print(f"🎨 [3/4] Designing visuals...")
-        
+        """3단계: 이미지 검색 및 삽입"""
+        print(f"🎨 [3/4] Processing images...")
         markers = re.findall(r'\[IMAGE:.*?\]', content)
         
         for marker in markers:
             query = marker.replace('[IMAGE:', '').replace(']', '').strip()
-            print(f"   🔍 Searching image for: {query}")
-            
             try:
                 res = requests.get(
                     "https://api.unsplash.com/photos/random",
@@ -174,90 +151,44 @@ class ProBlogBot:
                 if res.status_code == 200:
                     data = res.json()
                     if isinstance(data, list): data = data[0]
-                    
-                    img_html = f"""
-                    <div class="blog-image-wrapper" style="margin: 30px 0; text-align: center;">
-                        <img src="{data['urls']['regular']}" alt="{query}" 
-                             style="width: 100%; max-width: 800px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                        <p style="font-size: 0.8em; color: #666; margin-top: 8px;">Photo by {data['user']['name']} on Unsplash</p>
-                    </div>
-                    """
+                    img_html = f"""<div style="margin:30px 0;text-align:center;"><img src="{data['urls']['regular']}" style="width:100%;max-width:800px;border-radius:8px;"><p style="color:#666;font-size:12px">Photo by {data['user']['name']}</p></div>"""
                     content = content.replace(marker, img_html, 1)
                 else:
                     content = content.replace(marker, "", 1)
             except:
                 content = content.replace(marker, "", 1)
-                
         return content
 
     def step_4_publisher(self, title, content, category):
-        """4단계: 최종 스타일링 및 발행"""
-        print(f"🚀 [4/4] Publishing to Blogger...")
+        """4단계: 발행"""
+        print(f"🚀 [4/4] Publishing...")
         
-        # 전문적인 잡지 스타일 CSS
-        css = """
-        <style>
-            .post-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; line-height: 1.8; color: #333; font-size: 18px; }
-            h2 { font-size: 28px; font-weight: 700; color: #1a1a1a; margin-top: 50px; margin-bottom: 20px; letter-spacing: -0.5px; }
-            h3 { font-size: 22px; font-weight: 600; color: #2d3436; margin-top: 30px; }
-            p { margin-bottom: 24px; }
-            ul, ol { margin-bottom: 24px; padding-left: 20px; }
-            li { margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin: 30px 0; font-size: 16px; }
-            th { background: #f1f3f5; font-weight: 600; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
-            td { padding: 12px; border-bottom: 1px solid #eee; }
-            blockquote { border-left: 4px solid #339af0; padding-left: 20px; color: #495057; font-style: italic; margin: 30px 0; }
-            .disclaimer { background: #fff5f5; padding: 15px; border-radius: 6px; font-size: 14px; color: #c92a2a; margin-top: 50px; }
-        </style>
-        """
-        
-        disclaimer = ""
-        if CURRENT_MODE == 'MONEY':
-            disclaimer = """
-            <div class="disclaimer">
-                <strong>Disclaimer:</strong> This article contains information for educational purposes. 
-                Financial decisions should be made with professional advice. 
-                Some links may be affiliate links.
-            </div>
-            """
-
-        final_html = f"{css}<div class='post-body'>{content}{disclaimer}</div>"
+        css = """<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.8;color:#333;font-size:18px}h2{margin-top:40px;color:#1a1a1a}table{width:100%;border-collapse:collapse;margin:30px 0}th,td{border:1px solid #ddd;padding:12px}th{background:#f8f9fa}</style>"""
+        final_html = f"{css}<div>{content}</div>"
         
         body = {
             'title': title,
             'content': final_html,
-            'labels': [CURRENT_MODE, category, '2026 Guide']
+            'labels': [CURRENT_MODE, category]
         }
         
         try:
             service = self.get_blogger_service()
-            # 안전하게 Draft(초안) 상태로 업로드
             res = service.posts().insert(blogId=self.blog_id, body=body, isDraft=True).execute()
-            print(f"✅ Success! Draft URL: {res.get('url')}")
-            return True
+            print(f"✅ Published: {res.get('url')}")
         except Exception as e:
-            print(f"❌ Publish Error: {e}")
-            return False
+            print(f"❌ Error: {e}")
 
     def run(self):
-        """메인 실행 함수"""
-        print(f"🔥 Starting ProBlogBot in [{CURRENT_MODE}] Mode")
-        
-        # 1. 주제 선정
         niche_dict = self.niche_approval if CURRENT_MODE == 'APPROVAL' else self.niche_money
         category = random.choice(list(niche_dict.keys()))
         keyword = random.choice(niche_dict[category])
         
-        # 2. 파이프라인 실행
         plan = self.step_1_planner(category, keyword)
-        if not plan: return
-        
-        content = self.step_2_writer(plan, keyword)
-        if not content: return
-        
-        content = self.step_3_designer(content)
-        
-        self.step_4_publisher(plan['title'], content, category)
+        if plan:
+            content = self.step_2_writer(plan, keyword)
+            content = self.step_3_designer(content)
+            self.step_4_publisher(plan['title'], content, category)
 
 if __name__ == "__main__":
     bot = ProBlogBot()
