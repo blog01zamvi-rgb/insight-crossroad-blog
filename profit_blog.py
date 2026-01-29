@@ -26,7 +26,11 @@ from anthropic import Anthropic
 # ==========================================
 
 CURRENT_MODE = os.getenv('BLOG_MODE', 'APPROVAL')  # 'APPROVAL' or 'MONEY'
-CLAUDE_MODEL = "claude-opus-4-5-20250514"  # Opus 4.5
+
+# Model Selection - Opus 4.5가 안되면 Sonnet 4.5 사용
+# Opus 4.5: claude-opus-4-5-20251101 (더 비쌈, $5/$25, Pro/Max/Enterprise 필요)
+# Sonnet 4.5: claude-sonnet-4-5-20250929 (저렴, $3/$15, 일반 API 가능)
+CLAUDE_MODEL = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-5-20250929')
 
 # ==========================================
 # 🎭 PERSONA SYSTEM - 핵심 차별화 요소
