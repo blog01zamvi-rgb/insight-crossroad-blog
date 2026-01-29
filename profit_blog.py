@@ -296,7 +296,10 @@ Always include:
 - <h1> for title
 - 4-6 <h2> sections (vary the structure, not always the same flow)
 - Use <h3> for subsections
-- Include 2-3 [IMAGE: specific visual description] markers
+- Include 2-3 [IMAGE: simple description] markers
+  * Use simple, generic terms: "financial planning", "investment strategy", "stock market"
+  * NOT specific charts: "line chart comparing X vs Y from 2021-2025"
+  * Think: What actual photo could illustrate this concept?
 - 1200-1800 words
 
 **Style:**
@@ -355,7 +358,15 @@ Write the complete article starting with <h1>:"""
             
             for i, marker in enumerate(image_markers):
                 marker_text = marker.replace('[IMAGE:', '').replace(']', '').strip()
-                query = marker_text if len(marker_text) > 3 else base_queries[i % len(base_queries)]
+                
+                # 차트/그래프 언급 시 키워드로 대체
+                chart_keywords = ['chart', 'graph', 'plot', 'diagram', 'showing', 'comparing', 'illustrating']
+                if any(word in marker_text.lower() for word in chart_keywords):
+                    # 차트 설명이면 키워드만 사용
+                    query = topic_data.get('keyword', 'business')
+                    print(f"   📊 차트 설명 감지 → 키워드 '{query}'로 검색")
+                else:
+                    query = marker_text if len(marker_text) > 3 else base_queries[i % len(base_queries)]
                 
                 print(f"🖼️  이미지 {i+1} 검색: {query}")
                 
@@ -369,6 +380,20 @@ Write the complete article starting with <h1>:"""
                         },
                         timeout=10
                     )
+                    
+                    # 404 실패 시 기본 키워드로 재시도
+                    if img_res.status_code == 404:
+                        print(f"   ⚠️  404 에러 - 기본 키워드로 재시도")
+                        query = topic_data.get('keyword', 'business')
+                        img_res = requests.get(
+                            "https://api.unsplash.com/photos/random",
+                            params={
+                                'query': query,
+                                'client_id': self.unsplash_api_key,
+                                'orientation': 'landscape'
+                            },
+                            timeout=10
+                        )
                     
                     if img_res.status_code == 200:
                         data = img_res.json()
