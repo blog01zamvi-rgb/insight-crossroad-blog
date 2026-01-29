@@ -257,63 +257,67 @@ Return ONLY valid JSON (no markdown, no explanation):
             
             key_insights = insights_map.get(niche, insights_map['business'])
             
-            post_prompt = f"""You are a senior expert in {domain} writing a critical, practical article in 2026.
+            post_prompt = f"""You are a senior expert in {domain} writing a practical, approval-friendly article in 2026.
 
 Title: {topic_data['title']}
 
 **Critical Data Points to Integrate:**
 {key_insights}
 
+**STRUCTURE (5-Section Format for AdSense Approval):**
+
+1. <h2>Why This Matters</h2>
+   - Open with why the reader needs this information (2-3 paragraphs)
+   - Make the problem relatable and urgent
+   - Avoid generic openings
+
+2. <h2>Quick Takeaways</h2>
+   - Provide 3-5 key points in bullet format
+   - Give readers the TL;DR upfront
+   
+3. <h2>[Main Analysis Section]</h2>
+   - REQUIRED: Include 1-2 comparison tables
+   - Use real scenarios marked as "typical example"
+   - Break into subsections with <h3>
+   - Include 2-3 [IMAGE: simple description] markers
+   
+4. <h2>Common Mistakes to Avoid</h2>
+   - List 3-5 pitfalls with brief explanations
+   - Use "red flag" or "warning" framing
+   
+5. <h2>Bottom Line</h2>
+   - 1-2 sentence core message
+   - End with a practical next step
+
 **CRITICAL - Avoid Formulaic Patterns:**
-Do NOT fall into the same structure every time:
-- NOT every article needs to mention "5-hour rule" 
-- NOT every article needs hidden costs section
+- NOT every article needs "5-hour rule" 
 - NOT every article needs Before/After comparison
-- Vary your approach based on the title
+- Vary structure based on title approach
 
 **Strict Rules:**
 1. BANNED WORDS: "landscape", "revolutionize", "unlock", "game-changing", "unprecedented", "delve", "robust", "leverage"
 2. NO generic openings like "In today's world..." or "The rise of..."
-3. START with a specific problem, surprising stat, or contrarian opinion
-4. Include 2-3 realistic scenarios (mark as "typical example" or "common pattern")
+3. START with "Why This Matters" section
+4. Include realistic scenarios (mark as "typical example" or "common pattern")
 5. Discuss what DOESN'T work, not just what works
-6. Admit limitations and trade-offs
 
 **Data Accuracy Rules (CRITICAL):**
 - NEVER use exact percentages without qualification (e.g. NOT "83% of companies")
 - Instead use: "research shows", "analyses indicate", "common pattern", "significant majority"
 - Use ranges with context: "30-50% in typical audits (up to 70% in extreme cases)"
 - For examples with numbers, say: "in a typical scenario", "realistic example"
-- NO claims like "I consulted with" or "in my experience at Company X" unless clearly marked as hypothetical
 
-**Structure - Choose Based on Title:**
-If title is investigative ("I analyzed X"): Show methodology, findings, insights
-If title is process ("3-step framework"): Show steps with examples, explain why each works
-If title is contrarian ("Why X is backwards"): Show conventional approach, problems, better way
-If title is diagnostic ("Signs you need X"): Show symptoms, root causes, solutions
-
-Always include:
-- <h1> for title
-- 4-6 <h2> sections (vary the structure, not always the same flow)
-- Use <h3> for subsections
-- Include 2-3 [IMAGE: simple description] markers
-  * Use simple, generic terms: "financial planning", "investment strategy", "stock market"
-  * NOT specific charts: "line chart comparing X vs Y from 2021-2025"
-  * Think: What actual photo could illustrate this concept?
-- 1200-1800 words
-
-**Style:**
-- Write for skeptical professionals who hate BS
-- Mix short punchy sentences with longer analytical ones
-- Use "you" to speak directly to reader
-- Strong opinions are good, but back them up
+**Length & Format:**
+- 1,200-1,500 words (3,000-4,000 characters)
+- At least ONE comparison table (use HTML <table>)
 - Use keyword "{keyword}" naturally 3-5 times
+- Personal observations: "In analyzing..." "What stands out..." (NOT "In my consulting work")
 
-**End with a brief caveat paragraph:**
-"What this doesn't cover: [mention 1-2 exceptions or edge cases]"
+**End with caveat:**
+"What this doesn't cover: [mention 1-2 exceptions]"
 
 **Context:**
-Current year: 2026. The hype cycle is over. Focus on what actually works based on observable patterns and data.
+Year 2026. Focus on practical value and clear information structure.
 
 Write the complete article starting with <h1>:"""
 
