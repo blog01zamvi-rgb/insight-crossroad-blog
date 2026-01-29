@@ -2,8 +2,8 @@ name: Insight Crossroad Auto Publisher
 
 on:
   schedule:
-    - cron: '0 18 * * *'  # 매일 UTC 18:00 = 한국 새벽 3시
-  workflow_dispatch:  # 수동 실행도 가능
+    - cron: '0 18 * * *'
+  workflow_dispatch:
 
 jobs:
   publish-post:
@@ -34,14 +34,3 @@ jobs:
         OAUTH_REFRESH_TOKEN: ${{ secrets.OAUTH_REFRESH_TOKEN }}
       run: |
         python profit_blog.py
-```
-
----
-
-## ⏰ **실행 시간:**
-```
-UTC 18:00 = 한국 새벽 3시
-
-매일 새벽 3시에 자동으로:
-- 글 1개 생성
-- Blogger 드래프트 발행
