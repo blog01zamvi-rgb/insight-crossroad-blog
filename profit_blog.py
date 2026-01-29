@@ -19,7 +19,7 @@ from anthropic import Anthropic
 CURRENT_MODE = 'APPROVAL' 
 
 # 2. 모델 설정 (사용자 지정 모델명)
-CLAUDE_MODEL_NAME = "claude-opus-4.5-20250514"
+CLAUDE_MODEL_NAME = "claude-opus-4-5-20251101"
 
 class SecurityValidator:
     """보안 및 데이터 검증 클래스"""
