@@ -1,9 +1,7 @@
 name: Insight Crossroad Auto Publisher
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # 매일 오전 9시 (UTC, 한국 09:00)
-  workflow_dispatch:  # 수동 실행 가능
+  workflow_dispatch:
 
 jobs:
   publish-post:
@@ -25,6 +23,7 @@ jobs:
     - name: Run profit blog system
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         UNSPLASH_API_KEY: ${{ secrets.UNSPLASH_API_KEY }}
         BLOGGER_API_KEY: ${{ secrets.BLOGGER_API_KEY }}
         BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
@@ -33,3 +32,39 @@ jobs:
         OAUTH_REFRESH_TOKEN: ${{ secrets.OAUTH_REFRESH_TOKEN }}
       run: |
         python profit_blog.py
+```
+
+8. **"Commit changes"** 클릭
+
+9. **"Commit changes"** 다시 클릭
+
+---
+
+## STEP 4: 테스트
+
+### 실행하기
+
+1. **Repository 메인 페이지로**
+
+2. **"Actions"** 탭 클릭
+
+3. 왼쪽에서 **"Insight Crossroad Auto Publisher"** 클릭
+
+4. **"Run workflow"** 버튼 클릭 (오른쪽)
+
+5. **"Run workflow"** 다시 클릭 (초록색 버튼)
+
+6. **새로고침** (F5)
+
+7. **노란 점** 보이면 실행 중
+
+8. **클릭해서 로그 보기**
+
+### 성공 확인
+
+**로그에서 이런 메시지 보이면 성공:**
+```
+✅ Claude 주제 생성 완료
+📝 주제: Why 70% of...
+✅ Claude 본문 생성 완료 (15234 문자)
+🎉 글 발행 완료!
