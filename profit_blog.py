@@ -10,6 +10,7 @@ import requests
 from google import genai
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
+from anthropic import Anthropic
 
 class SecurityValidator:
     """보안 검증 클래스"""
@@ -20,7 +21,6 @@ class SecurityValidator:
         if not content:
             return content
         
-        # 위험한 태그/속성 목록
         dangerous_patterns = [
             r'<script[^>]*>.*?</script>',
             r'<iframe[^>]*>.*?</iframe>',
@@ -47,12 +47,10 @@ class SecurityValidator:
         try:
             parsed = urlparse(url)
             
-            # HTTPS만 허용
             if parsed.scheme != 'https':
                 print(f"⚠️  보안: HTTP URL 차단됨")
                 return False
             
-            # Unsplash 도메인만 허용
             if 'unsplash.com' not in parsed.netloc and 'images.unsplash.com' not in parsed.netloc:
                 print(f"⚠️  보안: 알 수 없는 이미지 소스 차단됨")
                 return False
@@ -68,12 +66,10 @@ class SecurityValidator:
         if not title:
             return "Untitled Post"
         
-        # 길이 제한 (200자)
         if len(title) > 200:
             title = title[:200]
         
-        # 위험한 문자 제거
-        title = re.sub(r'<[^>]+>', '', title)  # HTML 태그 제거
+        title = re.sub(r'<[^>]+>', '', title)
         title = title.replace('javascript:', '')
         title = title.replace('<script', '')
         
@@ -93,16 +89,17 @@ class SecurityValidator:
 
 class ProfitOptimizedBlogSystem:
     def __init__(self):
-        # 환경 변수 로드 확인
         self.gemini_api_key = os.getenv('GEMINI_API_KEY')
+        self.anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
         self.unsplash_api_key = os.getenv('UNSPLASH_API_KEY')
         self.blog_id = os.getenv('BLOGGER_BLOG_ID')
         
-        if not self.gemini_api_key:
-            print("❌ 오류: GEMINI_API_KEY가 설정되지 않았습니다.")
+        if not self.anthropic_api_key:
+            print("❌ 오류: ANTHROPIC_API_KEY가 설정되지 않았습니다.")
             sys.exit(1)
 
-        self.client = genai.Client(api_key=self.gemini_api_key)
+        # Claude: 주제 + 본문 생성 (품질 최고)
+        self.claude_client = Anthropic(api_key=self.anthropic_api_key)
         
         self.profitable_niches = {
             'technology': ['AI', 'SaaS', 'Gadgets', 'Software', 'Cloud Computing'],
@@ -113,6 +110,7 @@ class ProfitOptimizedBlogSystem:
         }
 
     def get_blogger_service(self):
+        """OAuth로 Blogger API 서비스 생성"""
         from google.auth.transport.requests import Request
         authorized_user_info = {
             'client_id': os.getenv('OAUTH_CLIENT_ID'),
@@ -127,51 +125,17 @@ class ProfitOptimizedBlogSystem:
         creds.refresh(Request())
         return build('blogger', 'v3', credentials=creds)
 
-    def run_daily_automation(self):
-        # 짧은 랜덤 지연 (5~30분) - 자동화 티 안 나게, 무료 플랜 고려
-        delay_minutes = random.randint(5, 30)
-        print(f"⏰ 랜덤 대기 시작: {delay_minutes}분")
-        print(f"🕐 예상 시작 시간: {datetime.now() + timedelta(minutes=delay_minutes)}")
-        time.sleep(delay_minutes * 60)
+    def generate_single_post(self, validator):
+        """단일 글 생성 (주제 + 본문 + 이미지 + 발행)"""
+        print(f"\n{'='*60}")
+        print(f"📝 글 생성 시작...")
+        print(f"{'='*60}\n")
         
-        print(f"\n🚀 자동화 실제 시작: {datetime.now()}")
-        print("=" * 60)
-        
-        # 보안 검증 인스턴스
-        validator = SecurityValidator()
-        
-        # 1. 주제 생성
+        # 1. 주제 생성 (Claude)
         try:
             niche = random.choice(list(self.profitable_niches.keys()))
             keywords = self.profitable_niches[niche]
             
-            prompt = f"""Find 1 trending blog topic for {niche} in 2026. 
-            Use keywords: {', '.join(keywords)}
-            Return ONLY JSON like {{"title": "...", "keyword": "...", "description": "..."}}"""
-            
-            response = self.client.models.generate_content(
-                model='gemini-2.5-flash', 
-                contents=prompt
-            )
-            print("✅ Gemini 주제 생성 응답 수신 성공")
-            
-            text = response.text
-            if "```json" in text: 
-                text = text.split("```json")[1].split("```")[0]
-            topic_data = json.loads(text.strip())
-            
-            # 보안: 제목 검증
-            topic_data['title'] = validator.validate_title(topic_data.get('title', 'Untitled'))
-            
-            print(f"📝 주제: {topic_data['title']}")
-            
-        except Exception as e:
-            print(f"❌ 1단계(주제생성) 실패: {str(e)}")
-            return
-
-        # 2. 본문 생성
-        try:
-            # 도메인 맵핑
             domain_map = {
                 'technology': 'enterprise SaaS and technology',
                 'finance': 'financial services and investment',
@@ -180,126 +144,183 @@ class ProfitOptimizedBlogSystem:
                 'education': 'online learning and education technology'
             }
             domain = domain_map.get(niche, 'business')
-            keyword = topic_data.get('keyword', '')
             
-            # 핵심 인사이트 정의
-            key_insights = """
-- 60% of enterprise AI tool licenses remain unused after the first quarter
-- The 5+ hour rule: Only adopt AI for tasks consuming 5+ hours per week per person
-- Implementation cost: 2-3 hours per workflow for initial setup
-- ROI breakeven point: 3 months for teams with 50+ monthly instances
-- Below 50 instances/month: Setup overhead typically exceeds time savings
-- Success pattern: Task identification first, then tool selection (not reversed)
-"""
+            topic_prompt = f"""You are a critical content strategist for {domain} writing in 2026.
+
+Generate ONE contrarian, data-driven blog topic that challenges conventional wisdom.
+
+Context:
+- Domain: {domain}
+- Keywords: {', '.join(keywords)}
+- Year: 2026 (post-hype era, focus on what actually works)
+
+Requirements:
+1. Title must start with a number, question, or "Why/How"
+2. Include a specific problem or surprising data point
+3. Avoid hype words: "revolutionary", "game-changing", "unlock"
+4. Make it sound critical and practical, not promotional
+
+Examples of GOOD titles:
+- "Why 70% of Online Courses Fail: The 5-Hour Reality Check"
+- "The $200/Month SaaS Trap: When Free Tools Outperform"
+- "How Top Investors Lost 40% in 2025: Three Mistakes to Avoid"
+
+Examples of BAD titles:
+- "The Future of AI in Education"
+- "Revolutionizing Your Investment Strategy"
+- "10 Amazing Tools You Must Try"
+
+Return ONLY valid JSON (no markdown, no explanation):
+{{"title": "specific contrarian title", "keyword": "main keyword from list", "description": "one sentence hook"}}"""
             
-            post_prompt = f"""You are a top-tier industry strategist and pragmatic operator writing in 2026.
-
-Your task is to write a high-impact, "Definitive Guide" style article.
-
-**Target Context:**
-- **Title:** {topic_data['title']}
-- **Domain:** {domain}
-- **Length:** Minimum 1200 words. Achieve this by deep-diving into the *implications* and *mechanisms* of the problem, not by fluff.
-- **Current Era:** It is 2026. The initial AI hype cycle has crashed. We are in the "Era of Disillusionment & Real Utility." Write with this mature, skeptical perspective.
-
-**The "Proprietary Insights" (Your Anchor Data):**
-Integrate the following specific data points. Treat these as "observed patterns from high-performing teams," not necessarily universal laws.
-
-{key_insights}
-
-**Safety & Verification Protocol:**
-1. **Frame the Data:** Present numbers as "In our analysis of enterprise deployments..." or "We typically see that..." This ensures accuracy even if exact global stats vary.
-2. **2026 Context Injection:** Use your knowledge of the 2026 business landscape to explain *why* these patterns make sense (e.g., tightening budgets, mature market).
-3. **No Fabricated Facts:** Do not invent company names, fake studies, or specific dates not provided. Stick to the logic and scenarios.
-
-**Structure for Depth (The 1200+ Word Strategy):**
-
-1. **The Cold Hard Truth (The Hook):**
-   - Start immediately with the problem: Companies are buying AI backwards
-   - Use the "60% unused" metric as shocking evidence
-   - Set the 2026 context: Post-hype reality
-
-2. **The Root Cause Analysis (Why We Fail):**
-   - Analyze the psychology of "Tool-First" adoption
-   - Why do smart leaders make this mistake? (FOMO, board pressure, vendor hype)
-   - Explain the consequence: The "Trough of Disillusionment" when tools sit idle
-
-3. **The Protocol: The 5+ Hour Rule (The Solution):**
-   - Deeply unpack the methodology: "Identify repetitive cognitive tasks consuming 5+ hours/week"
-   - **Crucial:** Create a detailed *Hypothetical Audit Scenario*
-   - Example: Marketing Manager named 'Alex' audits her team's time to find these 5 hours
-   - This narrative adds realistic length and value
-
-4. **The Litmus Test: Classification vs. Context:**
-   - Expand with concrete examples
-   - **Case Study A (Pass):** Simple inquiry categorization - explain why LLMs excel here
-   - **Case Study B (Fail):** Nuanced customer complaints - explain why LLMs hallucinate
-   - Recommend the "Knowledge Base" approach as the correct alternative
-
-5. **The ROI Blueprint (The Math):**
-   - Detail the "2-3 hours implementation" vs "3-month break-even"
-   - Walk through the math: Show that for low-volume teams (<50/month), setup time isn't worth it
-   - Be the honest accountant - include the numbers that don't work
-
-**Tone & Style:**
-- Professional, critical, empathetic
-- Use **bolding** for emphasis
-- Use bullet points for steps
-- **Strictly No Clichés:** Ban "game-changer", "unprecedented", "landscape", "unlock", "supercharge", "delve"
-- Mix short punchy sentences with longer analytical ones
-- It's acceptable to use strong opinions: "Most teams get this backwards"
-
-**HTML Format:**
-- Use <h1> for title
-- Use <h2> for main sections (aim for 5-6 distinct sections)
-- Use <h3> for subsections where appropriate
-- Use <p> for paragraphs
-- Use <strong> for emphasis within text
-- Use <ul>/<ol> and <li> for lists
-- Include 2-3 [IMAGE: specific, detailed description] markers where visuals would clarify concepts
-
-**SEO:**
-- Primary keyword: "{keyword}"
-- Use naturally 4-6 times throughout the article
-- Variations are acceptable (e.g., "AI tools" → "AI solutions", "automation tools")
-- Include keyword in introduction
-- If natural, include in 1-2 section headings
-
-**Final Output Requirement:**
-Produce a polished, ready-to-publish HTML article that feels like it was written by a human expert with 10+ years of experience, updated for the 2026 reality. Every paragraph should provide genuine value.
-
-Current year: 2026. Write in present tense.
-
-Begin with <h1> and write the complete article:"""
-
-            # 강화된 프롬프트 + 안정적인 Flash 모델
-            post_response = self.client.models.generate_content(
-                model='gemini-2.5-flash',  # 안정적, 할당량 충분
-                contents=post_prompt
+            print("📝 Claude로 주제 생성 중...")
+            topic_response = self.claude_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=500,
+                messages=[{"role": "user", "content": topic_prompt}]
             )
             
+            topic_text = topic_response.content[0].text.strip()
+            print(f"✅ Claude 주제 생성 완료")
+            
+            # JSON 파싱
+            if "```json" in topic_text:
+                topic_text = topic_text.split("```json")[1].split("```")[0]
+            elif "```" in topic_text:
+                topic_text = topic_text.split("```")[1].split("```")[0]
+            
+            topic_data = json.loads(topic_text.strip())
+            
+            # 보안: 제목 검증
+            topic_data['title'] = validator.validate_title(topic_data.get('title', 'Untitled'))
+            
+            print(f"📝 주제: {topic_data['title']}")
+            
+        except Exception as e:
+            print(f"❌ 1단계(주제생성) 실패: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return
+
+        # 2. 본문 생성 (Claude)
+        try:
+            keyword = topic_data.get('keyword', '')
+            
+            # 카테고리별 핵심 인사이트
+            insights_map = {
+                'technology': """
+- 30-50% of enterprise tool licenses remain unused (up to 70% in some audits)
+- Only adopt tools for tasks consuming 5+ hours per week per person (rule of thumb)
+- Implementation: typically 10-18 hours per workflow setup (varies by complexity)
+- ROI breakeven: generally 3 months for teams with 50+ monthly instances
+- Below 50 instances/month: Setup overhead often exceeds time savings
+- Context switching cost: studies suggest up to 20-23 minutes to regain focus
+""",
+                'education': """
+- 60-70% of online course enrollments go uncompleted (industry average)
+- Effective learning requires consistent 5+ hours per week commitment (minimum threshold)
+- Completion rates vary: Self-paced 10-20%, cohort-based 60-70%, mentored 75-85%
+- ROI typically appears after 3-6 months of consistent practice
+- Stackable credentials work best for career transitions (6-12 month timeline)
+""",
+                'finance': """
+- 70-90% of retail investors underperform index funds over 10+ years (historical data)
+- Successful active investing requires 5-10+ hours per week of research
+- Diversification beats individual stock picking for most investors (studies show)
+- Common mistake: Reacting emotionally to short-term moves (behavioral finance research)
+- Cost of frequent trading: typically 1-2% annual returns lost to fees and timing
+""",
+                'business': """
+- 50-60% of productivity tools see declining usage after 3 months (common pattern)
+- Effective adoption requires 5+ hours per week of team engagement (minimum)
+- ROI threshold: Tool must save more time than it takes to learn and maintain
+- Implementation cost: typically 2-4 hours per person for training
+- Success factor: Management buy-in and consistent usage patterns (organizational behavior)
+""",
+                'health': """
+- 70-80% of fitness programs are abandoned within 3 months (industry data)
+- Sustainable results require 3-5+ hours per week commitment (evidence-based)
+- Quick fixes rarely work: studies show 80-95% regain weight within 2 years
+- Effective approach: Small, consistent changes over 6+ months (research-backed)
+- Key factor: Lifestyle integration, not temporary diets (behavior change science)
+"""
+            }
+            
+            key_insights = insights_map.get(niche, insights_map['business'])
+            
+            post_prompt = f"""You are a senior expert in {domain} writing a critical, practical article in 2026.
+
+Title: {topic_data['title']}
+
+**Critical Data Points to Integrate:**
+{key_insights}
+
+**Strict Rules:**
+1. BANNED WORDS: "landscape", "revolutionize", "unlock", "game-changing", "unprecedented", "delve", "robust", "leverage"
+2. NO generic openings like "In today's world..." or "The rise of..."
+3. START with a specific problem, surprising stat, or contrarian opinion
+4. Include 2-3 realistic scenarios or case examples (hypothetical is fine, but mark as "example" or "typical scenario")
+5. Discuss what DOESN'T work, not just what works
+6. Admit limitations and trade-offs
+
+**Data Accuracy Rules (CRITICAL):**
+- When citing statistics, use ranges: "30-50% (up to 70% in some cases)"
+- Add qualifiers: "studies suggest", "research shows", "industry data indicates", "typically", "often"
+- For hypothetical examples, say: "realistic example", "typical scenario", "common pattern I see"
+- Never claim "I consulted with" or "in my experience with specific company X" unless marking as hypothetical
+- When uncertain, use hedging: "can take", "often requires", "generally"
+
+**Structure:**
+- <h1> for title
+- 4-6 <h2> sections with specific, opinionated headings
+- Use <h3> for subsections
+- Include 2-3 [IMAGE: specific visual description] markers
+- 1200-1800 words
+
+**Style:**
+- Write for skeptical professionals who hate BS
+- Mix short punchy sentences with longer analytical ones
+- Use "you" to speak directly to reader
+- Strong opinions are good: "Most people get this wrong"
+- Use keyword "{keyword}" naturally 3-5 times
+
+**End with a brief caveat paragraph:**
+"What this doesn't cover: [mention 1-2 exceptions or edge cases, e.g., security/compliance tools may have different ROI calculus]"
+
+**Context:**
+Current year: 2026. The hype cycle is over. Focus on what actually works based on real-world data.
+
+Write the complete article starting with <h1>:"""
+
+            print("📝 Claude Sonnet 4로 본문 생성 중...")
+            
+            claude_response = self.claude_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=4096,
+                messages=[
+                    {"role": "user", "content": post_prompt}
+                ]
+            )
+            
+            content = claude_response.content[0].text
+            print(f"✅ Claude 본문 생성 완료 ({len(content)} 문자)")
+            
             # 보안: 응답 크기 검증
-            if not validator.validate_json_size(post_response.text):
+            if not validator.validate_json_size(content):
                 print("❌ 2단계(본문생성) 실패: 응답이 너무 큼")
                 return
-            
-            content = post_response.text
             
             if "```html" in content: 
                 content = content.split("```html")[1].split("```")[0].strip()
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0].strip()
             
-            # 보안: HTML 콘텐츠 정제
             content = validator.sanitize_html(content)
             
-            print(f"✅ 본문 생성 완료 ({len(content)} 문자)")
-            
-            # 이미지 교체 (각기 다른 사진)
+            # 이미지 교체
             image_markers = re.findall(r'\[IMAGE:.*?\]', content)
             image_count = 0
             
-            # 기본 검색어 리스트 (마커가 부족할 경우 대비)
             base_queries = [
                 topic_data.get('keyword', 'business'),
                 f"{topic_data.get('keyword', 'business')} technology",
@@ -311,14 +332,12 @@ Begin with <h1> and write the complete article:"""
             ]
             
             for i, marker in enumerate(image_markers):
-                # 마커에서 설명 추출 또는 기본 검색어 사용
                 marker_text = marker.replace('[IMAGE:', '').replace(']', '').strip()
                 query = marker_text if len(marker_text) > 3 else base_queries[i % len(base_queries)]
                 
                 print(f"🖼️  이미지 {i+1} 검색: {query}")
                 
                 try:
-                    # Unsplash API 호출
                     img_res = requests.get(
                         "https://api.unsplash.com/photos/random",
                         params={
@@ -331,13 +350,11 @@ Begin with <h1> and write the complete article:"""
                     
                     if img_res.status_code == 200:
                         data = img_res.json()
-                        # 배열로 반환될 수도 있음
                         if isinstance(data, list):
                             data = data[0]
                         
                         img_url = data['urls']['regular']
                         
-                        # 보안: 이미지 URL 검증
                         if not validator.validate_image_url(img_url):
                             print(f"   ⚠️  이미지 {i+1} URL 검증 실패")
                             content = content.replace(marker, '', 1)
@@ -362,7 +379,6 @@ Begin with <h1> and write the complete article:"""
                         print(f"   ⚠️  이미지 {i+1} 실패 (상태: {img_res.status_code})")
                         content = content.replace(marker, '', 1)
                     
-                    # API 제한 방지
                     time.sleep(1)
                     
                 except Exception as img_err:
@@ -377,9 +393,8 @@ Begin with <h1> and write the complete article:"""
             traceback.print_exc()
             return
 
-        # 3. 발행 (데스크탑 최적화 레이아웃)
+        # 3. 발행
         try:
-            # 전문적인 블로그 스타일
             final_html = f"""
             <style>
                 .blog-post {{
@@ -473,13 +488,13 @@ Begin with <h1> and write the complete article:"""
                 body={
                     'title': topic_data['title'], 
                     'content': final_html,
-                    'labels': keywords[:5] if 'keywords' in locals() else []
+                    'labels': keywords[:5]
                 },
-                isDraft=True  # DRAFT 모드
+                isDraft=True
             ).execute()
             
             print(f"\n{'='*60}")
-            print(f"🎉 모든 프로세스 완료!")
+            print(f"🎉 글 발행 완료!")
             print(f"{'='*60}")
             print(f"📝 제목: {topic_data['title']}")
             print(f"🆔 드래프트 ID: {result.get('id')}")
@@ -492,6 +507,26 @@ Begin with <h1> and write the complete article:"""
             import traceback
             traceback.print_exc()
 
+    def run_manual_post(self):
+        """수동 실행 시 글 1개 생성"""
+        print(f"🚀 글 생성 시작: {datetime.now()}")
+        print("=" * 60)
+        
+        validator = SecurityValidator()
+        
+        # 글 1개 생성
+        try:
+            self.generate_single_post(validator)
+        except Exception as e:
+            print(f"❌글 생성 실패: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        print(f"\n{'='*60}")
+        print(f"🎉 작업 완료!")
+        print(f"📅 완료 시간: {datetime.now()}")
+        print(f"{'='*60}\n")
+
 if __name__ == "__main__":
     blog_system = ProfitOptimizedBlogSystem()
-    blog_system.run_daily_automation()
+    blog_system.run_manual_post()
