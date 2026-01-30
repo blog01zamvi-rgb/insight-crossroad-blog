@@ -33,97 +33,77 @@ CURRENT_MODE = os.getenv('BLOG_MODE', 'APPROVAL')  # 'APPROVAL' or 'MONEY'
 CLAUDE_MODEL = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-5-20250929')
 
 # ==========================================
-# 🎭 PERSONA SYSTEM - 핵심 차별화 요소
+# 🎭 PERSONA SYSTEM - 리서치 기반 큐레이터
 # ==========================================
 
-PERSONAS = {
-    'tech_pragmatist': {
-        'name': 'Alex',
-        'background': """You are Alex, a 36-year-old senior product manager who spent 9 years at mid-size B2B SaaS companies before going independent as a consultant. You've shipped 12 products, killed 4 that weren't working, and learned more from failures than successes. You write like you're explaining things to a smart colleague over coffee - direct, practical, occasionally sarcastic but never mean. You have strong opinions loosely held.""",
-        'voice_traits': [
-            "Uses 'Look,' or 'Here's the thing:' to start contrarian points",
-            "Admits uncertainty with 'I might be wrong, but...' or 'In my experience...'",
-            "References specific (but anonymized) past projects: 'At a fintech startup I consulted for...'",
-            "Occasionally self-deprecating: 'I learned this the hard way when I...'",
-            "Ends sections with actionable takeaways, not fluff"
-        ],
-        'categories': ['Productivity', 'Tech_Tips', 'SaaS_Review']
-    },
-    'wellness_realist': {
-        'name': 'Jordan',
-        'background': """You are Jordan, a 41-year-old former HR director turned wellness coach. You spent 15 years in corporate environments watching people burn out, including yourself once. You're skeptical of hustle culture and "productivity porn." You write with warmth but don't sugarcoat things. You believe sustainable habits beat dramatic transformations.""",
-        'voice_traits': [
-            "Starts with relatable struggles: 'I used to think...' or 'Like most people, I...'",
-            "Challenges common advice: 'Contrary to what most gurus say...'",
-            "Grounds advice in psychology without being academic",
-            "Uses 'we' to create solidarity: 'We've all been there'",
-            "Acknowledges that not everything works for everyone"
-        ],
-        'categories': ['Wellness', 'Work_Life']
-    },
-    'finance_skeptic': {
-        'name': 'Sam',
-        'background': """You are Sam, a 44-year-old CPA who left Big 4 accounting to run a small advisory practice. You've seen every financial mistake in the book and made a few yourself. You're deeply skeptical of get-rich-quick schemes and "passive income" hype. You explain complex topics simply without being condescending.""",
-        'voice_traits': [
-            "Leads with 'Let me be direct:' or 'The honest truth is...'",
-            "Uses real-world examples: 'I had a client who...' (anonymized)",
-            "Warns about common pitfalls before giving advice",
-            "Distinguishes between 'what works in theory' and 'what I've seen work'",
-            "Always mentions risks alongside opportunities"
-        ],
-        'categories': ['Finance', 'Hosting', 'Business']
-    }
+PERSONA = {
+    'background': """You are a curious blogger who researches topics and summarizes findings for readers. You're NOT an expert and you don't pretend to be. You don't claim personal experience you don't have. Instead, you spend time looking into topics, comparing different sources and opinions, and presenting what you found in a clear, organized way.
+
+Your value is in doing the research legwork so readers don't have to. You're like a friend who says "I looked into this for you, here's what I found."
+
+You write in a casual, conversational tone - not academic, not corporate, just clear and helpful.""",
+    
+    'voice_traits': [
+        "Frame as research: 'I looked into this...', 'From what I found...', 'Based on what people are saying...'",
+        "Cite general sources naturally: 'Reddit users seem to agree...', 'A lot of reviews mention...', 'The common advice is...'",
+        "Add your take: 'Honestly, this surprised me...', 'I'm not sure I buy this, but...', 'This makes sense to me because...'",
+        "Acknowledge gaps: 'I couldn't find a clear answer on...', 'Opinions are split on this...'",
+        "Be practical: Focus on actionable takeaways, not fluff",
+        "Show your work: Mention what you compared, what sources you looked at (generally)",
+        "Have opinions: After presenting findings, share what YOU think makes most sense",
+        "Admit uncertainty: 'Take this with a grain of salt', 'Your situation might be different'"
+    ]
 }
 
 # ==========================================
-# 📝 TOPIC POOLS
+# 📝 TOPIC POOLS - 리서치 기반 주제
 # ==========================================
 
 TOPICS = {
     'APPROVAL': {
         'Productivity': [
-            'Why Most Productivity Systems Fail (And What Actually Works)',
-            'The Case Against Morning Routines',
-            'Deep Work Is Overrated for Most Jobs',
-            'How I Finally Fixed My Email Overwhelm',
-            'The Hidden Cost of Context Switching'
+            'Pomodoro vs Time Blocking: I Compared What Actually Works',
+            'Why Do Some People Swear by 5AM Routines? I Looked Into It',
+            'Notion vs Obsidian: What Reddit Actually Says',
+            'The Real Reason Most To-Do Lists Fail (According to Research)',
+            'I Read 20 Articles on Deep Work - Here Are the Parts That Actually Matter'
         ],
         'Wellness': [
-            'Burnout Recovery Takes Longer Than You Think',
-            'Why "Work-Life Balance" Is the Wrong Goal',
-            'The Ergonomic Setup That Actually Helped My Back',
-            'Mindfulness Apps Didn\'t Work for Me Until I Changed This',
-            'Sleep Optimization Without the Obsession'
+            'Standing Desks: Hype or Legit? What the Studies Say',
+            'I Compared 5 Sleep Tracking Methods - Here\'s What I Found',
+            'What Actually Helps With Burnout (And What Doesn\'t)',
+            'Blue Light Glasses: I Looked Into Whether They\'re Worth It',
+            'The Science Behind Why Walking Meetings Might Work'
         ],
         'Tech_Tips': [
-            'Password Managers: What I Wish I Knew Sooner',
-            'The Backup Strategy That Saved My Business',
-            'Browser Extensions I Actually Use Daily',
-            'Why I Switched to a Simpler Note-Taking System',
-            'Two-Factor Authentication: A Practical Guide'
+            'Password Managers Compared: What Users Actually Complain About',
+            'VPN Services: Cutting Through the Marketing BS',
+            'Why Tech People Keep Recommending Linux (And Why You Probably Shouldn\'t Switch)',
+            'Cloud Storage Pricing is Confusing - I Broke It Down',
+            'Ad Blockers in 2025: What Still Works and What Got Broken'
         ]
     },
     'MONEY': {
         'SaaS_Review': [
-            'I Tested 7 Project Management Tools - Here\'s What I Found',
-            'CRM Software: The Features That Actually Matter',
-            'Email Marketing Platforms Compared (A Practitioner\'s View)',
-            'The Accounting Software Decision Framework',
-            'Collaboration Tools: Cutting Through the Hype'
+            'Asana vs Monday vs ClickUp: What Teams Actually Say After 6 Months',
+            'CRM Software: The Hidden Costs Nobody Mentions Upfront',
+            'Email Marketing Tools: I Compared Pricing For a 10K List',
+            'Project Management Tools: Feature Comparison That Actually Matters',
+            'Why Some Companies Ditch Slack for Discord (And Vice Versa)'
         ],
         'Hosting': [
-            'Web Hosting for Small Business: An Honest Assessment',
-            'Cloud Storage Pricing: What You\'re Really Paying For',
-            'Managed WordPress Hosting: When It\'s Worth It',
-            'VPS vs Shared Hosting: A Decision Guide',
-            'CDN Services Compared for Non-Technical Users'
+            'Cheap Web Hosting: What You Actually Get for $3/Month',
+            'WordPress Hosting Compared: Shared vs Managed vs VPS',
+            'The Real Cost of "Unlimited" Hosting Plans',
+            'Website Builders vs Custom Sites: When Each Makes Sense',
+            'CDN Pricing Explained: Do Small Sites Even Need One?'
         ],
         'Finance': [
-            'Budgeting Apps: What Works Beyond the First Month',
-            'Investment Platforms for Beginners: Realistic Expectations',
-            'Business Credit Cards: Understanding the Fine Print',
-            'Expense Tracking Tools: A Practical Comparison',
-            'Tax Software Limitations You Should Know'
+            'Budgeting Apps: Which Ones People Actually Keep Using',
+            'Investing Apps for Beginners: Fees Compared Simply',
+            'Credit Card Rewards: When They\'re Worth It vs When They\'re Not',
+            'Side Hustle Tax Stuff: What I Found Out The Hard Way (Research Edition)',
+            'Buy Now Pay Later Services: The Fine Print Nobody Reads'
         ]
     }
 }
@@ -175,62 +155,54 @@ class ProBlogBotV2:
         self.claude = Anthropic(api_key=self.anthropic_key)
         self.validator = SecurityValidator()
         self.conversation_history = []  # Multi-turn을 위한 히스토리
-        
-    def _select_persona(self, category):
-        """카테고리에 맞는 persona 선택"""
-        for persona_key, persona in PERSONAS.items():
-            if category in persona['categories']:
-                return persona
-        # 기본값
-        return PERSONAS['tech_pragmatist']
     
-    def _build_system_prompt(self, persona):
-        """Persona 기반 시스템 프롬프트 구축"""
+    def _build_system_prompt(self):
+        """시스템 프롬프트 구축"""
         return f"""
-{persona['background']}
+{PERSONA['background']}
 
 ## Your Writing Voice
-{chr(10).join(f"- {trait}" for trait in persona['voice_traits'])}
+{chr(10).join(f"- {trait}" for trait in PERSONA['voice_traits'])}
 
 ## CRITICAL RULES - NEVER BREAK THESE
 
-### 1. NO FABRICATED STATISTICS
-- NEVER write specific numbers like "73% of users" or "studies show that 8 out of 10..."
-- NEVER cite fake research papers, surveys, or reports
-- Instead use: "many users report...", "research suggests...", "in my experience...", "I've noticed that..."
-- When uncertain, frame it as opinion: "I believe...", "My take is..."
+### 1. NO FABRICATION
+- NEVER invent statistics or specific numbers
+- NEVER claim personal experience you don't have
+- NEVER make up quotes or sources
+- Frame everything as research: "From what I found...", "People seem to say...", "The general consensus is..."
+- It's OK to say "I couldn't find reliable data on this"
 
 ### 2. NO AI-SOUNDING PHRASES
-Never use these phrases:
-- "In today's fast-paced world"
-- "In this comprehensive guide"
-- "Let's dive in" / "dive deep"
-- "At the end of the day"
-- "It's important to note that"
-- "In conclusion" (just conclude naturally)
-- "Delve into"
-- "The landscape of"
-- "Revolutionize" / "game-changer"
-- "Seamlessly" / "effortlessly"
-- "Robust" / "leverage"
-- "Take your X to the next level"
+Never use:
+- "In today's fast-paced world" / "In today's digital age"
+- "Comprehensive guide" / "Ultimate guide" 
+- "Let's dive in" / "dive deep" / "delve"
+- "It's important to note that" / "It's worth noting"
+- "In conclusion" (just end naturally)
+- "The landscape of" / "Navigate the complexities"
+- "Game-changer" / "Revolutionize"
+- "Seamlessly" / "Effortlessly" / "Robust" / "Leverage"
+- "Embark on a journey"
+- "Without further ado"
+- Any phrase that sounds like a LinkedIn post
 
-### 3. AUTHENTICITY MARKERS
-Every post MUST include:
-- At least one "I was wrong about..." or "I used to think..." moment
-- A specific (anonymized) example from your experience
-- One genuine limitation or caveat about your advice
-- A "what I'm still figuring out" mention
+### 3. PROVIDE REAL VALUE
+- Don't state the obvious - readers aren't stupid
+- Include specific, actionable information
+- Compare things concretely, not vaguely
+- If there's no clear answer, say so - that's valuable too
+- Cut the fluff - every paragraph should add something
 
-### 4. STRUCTURE VARIETY
-Don't always use the same structure. Mix it up:
-- Sometimes start with a story, sometimes with a hot take
-- Vary section lengths - not everything needs to be perfectly balanced
-- Include occasional asides or parenthetical thoughts (like this)
-- Not every point needs a subheader
+### 4. NATURAL STRUCTURE
+- Don't use the same format every time
+- Not everything needs bullet points
+- Vary paragraph lengths
+- Write like you're explaining to a friend, not writing a term paper
+- Headers should be useful, not clever
 """
 
-    def step_1_plan(self, topic, persona):
+    def step_1_plan(self, topic):
         """1단계: 기획 - 차별화된 앵글 찾기"""
         print(f"🧠 [1/5] Finding unique angle for '{topic}'...")
         
@@ -266,7 +238,7 @@ Return JSON only:
             response = self.claude.messages.create(
                 model=CLAUDE_MODEL,
                 max_tokens=1500,
-                system=self._build_system_prompt(persona),
+                system=self._build_system_prompt(),
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -287,34 +259,33 @@ Return JSON only:
             print(f"⚠️ Planning failed: {e}")
             return None
 
-    def step_2_write_draft(self, plan, persona):
+    def step_2_write_draft(self, plan):
         """2단계: 초안 작성"""
         print(f"✍️ [2/5] Writing first draft...")
         
         prompt = f"""
 Based on our plan:
 - Title: {plan['working_title']}
-- Contrarian angle: {plan['contrarian_angle']}
+- Angle: {plan['contrarian_angle']}
 - Sections: {json.dumps(plan['sections'], indent=2)}
-- Caveat to include: {plan['honest_caveat']}
+- Caveat: {plan['honest_caveat']}
 
 Write the full blog post in HTML format.
 
 Requirements:
 - 1500-2000 words
 - Use <h2> for main sections, <h3> for subsections
-- Use <p> for paragraphs, <ul>/<li> for lists
+- Use <p> for paragraphs, <ul>/<li> for lists sparingly
 - Insert exactly 2 image markers: [IMAGE: {plan['image_queries'][0]}] and [IMAGE: {plan['image_queries'][1]}]
-- First image after the opening section
-- Second image before the conclusion
 
-Remember:
-- Write as {persona['name']} with your unique voice
-- Include specific examples from your experience
-- No fabricated statistics - use qualitative language
-- Vary sentence length and structure
-- Include at least one self-deprecating moment
-- End with actionable steps, not generic motivation
+Writing approach:
+- Frame as research/curation: "I looked into...", "From what I found...", "People seem to say..."
+- Include specific comparisons, numbers from research, concrete details
+- Add your interpretation: "This makes sense because...", "I'm skeptical of this because..."
+- Acknowledge when information is conflicting or unclear
+- NO fake personal experiences - you're a researcher, not a user
+- NO generic filler - every paragraph should add real information
+- End with clear, actionable takeaways
 
 Output only the HTML content (no <html> or <body> tags, just the article content).
 """
@@ -325,7 +296,7 @@ Output only the HTML content (no <html> or <body> tags, just the article content
             response = self.claude.messages.create(
                 model=CLAUDE_MODEL,
                 max_tokens=4000,
-                system=self._build_system_prompt(persona),
+                system=self._build_system_prompt(),
                 messages=self.conversation_history
             )
             
@@ -338,30 +309,30 @@ Output only the HTML content (no <html> or <body> tags, just the article content
             print(f"⚠️ Writing failed: {e}")
             return None
 
-    def step_3_self_critique(self, draft, persona):
-        """3단계: 자기 비평 및 개선 (Opus 4.5 강점 활용)"""
+    def step_3_self_critique(self, draft):
+        """3단계: 자기 비평 및 개선"""
         print(f"🔍 [3/5] Self-critique and improvement...")
         
-        critique_prompt = f"""
+        critique_prompt = """
 Review the draft you just wrote. Be brutally honest.
 
 Check for:
-1. AI-SOUNDING PHRASES: Any "dive deep", "in today's world", "comprehensive guide", etc.?
-2. FAKE STATISTICS: Any specific percentages or numbers that sound made up?
-3. GENERIC ADVICE: Any sections that could appear in any article on this topic?
-4. VOICE CONSISTENCY: Does it sound like {persona['name']} throughout?
-5. AUTHENTICITY: Are the personal examples specific enough? Or too vague?
-6. FLOW: Any awkward transitions or repetitive structures?
+1. AI PHRASES: Any "dive deep", "comprehensive", "landscape", "embark", "leverage", etc.?
+2. FAKE STUFF: Any made-up statistics, fake experiences, or invented sources?
+3. FLUFF: Any paragraphs that don't add real information? Generic filler?
+4. VALUE: Does every section teach something specific? Or is it obvious/common knowledge?
+5. TONE: Does it sound like a real person researching, or like a corporate blog?
+6. CLAIMS: Any claims presented as fact that should be framed as "from what I found" or "people say"?
 
-List specific problems you found (be specific - quote the problematic text).
-Then explain how you'll fix each one.
+List specific problems (quote the text).
+Then explain how to fix each.
 
 Format:
 ## Issues Found
-1. [Quote problematic text] - Why it's a problem
+1. [Quote] - Problem
 
 ## Fixes
-1. [How you'll fix it]
+1. How to fix
 """
         
         self.conversation_history.append({"role": "user", "content": critique_prompt})
@@ -370,7 +341,7 @@ Format:
             response = self.claude.messages.create(
                 model=CLAUDE_MODEL,
                 max_tokens=2000,
-                system=self._build_system_prompt(persona),
+                system=self._build_system_prompt(),
                 messages=self.conversation_history
             )
             
@@ -379,25 +350,26 @@ Format:
             print(f"   📋 Found issues to fix...")
             
             # 4단계: 개선된 버전 작성
-            return self._apply_fixes(persona)
+            return self._apply_fixes()
             
         except Exception as e:
             print(f"⚠️ Critique failed: {e}")
             return draft  # 실패시 원본 반환
 
-    def _apply_fixes(self, persona):
+    def _apply_fixes(self):
         """비평을 바탕으로 개선된 버전 작성"""
         print(f"✨ [4/5] Applying improvements...")
         
         fix_prompt = """
-Now rewrite the entire article, applying all the fixes you identified.
+Rewrite the article, fixing all issues identified.
 
-This is your final version - make it count. Ensure:
-- Every AI-sounding phrase is replaced with natural language
-- All fake statistics are converted to qualitative statements
-- Personal examples are specific and believable
-- The voice is consistent and human throughout
-- Transitions feel natural, not formulaic
+Final version must:
+- Zero AI-sounding phrases
+- Zero fake statistics or experiences  
+- Every paragraph adds real, specific value
+- Sounds like a curious person who did research, not an expert or AI
+- Framed as findings/research, not personal experience
+- Clear, useful takeaways
 
 Output the complete, improved HTML article.
 """
@@ -408,7 +380,7 @@ Output the complete, improved HTML article.
             response = self.claude.messages.create(
                 model=CLAUDE_MODEL,
                 max_tokens=4000,
-                system=self._build_system_prompt(persona),
+                system=self._build_system_prompt(),
                 messages=self.conversation_history
             )
             
@@ -476,7 +448,7 @@ Output the complete, improved HTML article.
         
         return content
 
-    def step_5_publish(self, title, content, category, persona):
+    def step_5_publish(self, title, content, category):
         """최종 발행"""
         print(f"🚀 Publishing to Blogger...")
         
@@ -619,7 +591,7 @@ Output the complete, improved HTML article.
         """메인 실행 로직"""
         print(f"""
 ╔════════════════════════════════════════════════════════════╗
-║  Pro Blog Bot v2.0 - Opus 4.5 Optimized                   ║
+║  Pro Blog Bot v2.1 - Honest Blogger Edition               ║
 ║  Mode: {CURRENT_MODE:10s} | Model: {CLAUDE_MODEL:25s}    ║
 ╚════════════════════════════════════════════════════════════╝
 """)
@@ -629,9 +601,6 @@ Output the complete, improved HTML article.
         category = random.choice(list(topic_pool.keys()))
         topic = random.choice(topic_pool[category])
         
-        # Persona 선택
-        persona = self._select_persona(category)
-        print(f"👤 Persona: {persona['name']}")
         print(f"📁 Category: {category}")
         print(f"📝 Topic: {topic}")
         print("-" * 60)
@@ -640,7 +609,7 @@ Output the complete, improved HTML article.
         self.conversation_history = []
         
         # 파이프라인 실행
-        plan = self.step_1_plan(topic, persona)
+        plan = self.step_1_plan(topic)
         if not plan:
             print("❌ Planning failed - aborting")
             return
@@ -648,13 +617,13 @@ Output the complete, improved HTML article.
         print(f"   📌 Title: {plan['working_title']}")
         print(f"   💡 Angle: {plan['contrarian_angle']}")
         
-        draft = self.step_2_write_draft(plan, persona)
+        draft = self.step_2_write_draft(plan)
         if not draft:
             print("❌ Draft failed - aborting")
             return
         
-        # Self-critique loop (Opus 4.5 강점)
-        improved = self.step_3_self_critique(draft, persona)
+        # Self-critique loop
+        improved = self.step_3_self_critique(draft)
         if not improved:
             improved = draft  # Fallback
         
@@ -665,8 +634,7 @@ Output the complete, improved HTML article.
         self.step_5_publish(
             plan['working_title'],
             final_content,
-            category,
-            persona
+            category
         )
         
         print("\n✅ Pipeline complete!")
