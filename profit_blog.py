@@ -116,6 +116,11 @@ class SecurityValidator:
     def sanitize_html(content):
         if not content:
             return ""
+        
+        # Remove markdown code blocks if present
+        content = re.sub(r'^```html?\s*\n?', '', content, flags=re.IGNORECASE)
+        content = re.sub(r'\n?```\s*$', '', content)
+        
         dangerous_patterns = [
             r'<script[^>]*>.*?</script>',
             r'<iframe[^>]*>.*?</iframe>',
@@ -127,7 +132,7 @@ class SecurityValidator:
         cleaned = content
         for pattern in dangerous_patterns:
             cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE | re.DOTALL)
-        return cleaned
+        return cleaned.strip()
 
     @staticmethod
     def validate_image_url(url):
@@ -288,6 +293,7 @@ Writing approach:
 - End with clear, actionable takeaways
 
 Output only the HTML content (no <html> or <body> tags, just the article content).
+Do NOT wrap in markdown code blocks. No ```html or ```. Just raw HTML.
 """
         
         self.conversation_history.append({"role": "user", "content": prompt})
@@ -371,7 +377,7 @@ Final version must:
 - Framed as findings/research, not personal experience
 - Clear, useful takeaways
 
-Output the complete, improved HTML article.
+Output the complete HTML article. No markdown code blocks. No ```html. Just raw HTML.
 """
         
         self.conversation_history.append({"role": "user", "content": fix_prompt})
