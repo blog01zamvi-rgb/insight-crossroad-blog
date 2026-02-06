@@ -1,7 +1,6 @@
-google-genai
+anthropic>=0.43.0
 google-api-python-client
 requests
 google-auth
 google-auth-oauthlib
 google-auth-httplib2
-anthropic
