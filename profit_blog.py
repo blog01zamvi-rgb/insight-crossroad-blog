@@ -127,13 +127,13 @@ WRITING_FORMATS = [
     },
     {
         "name": "narrative_research",
-        "instruction": """Write this as a narrative - tell the story of your research journey.
-- Start with what triggered your curiosity
-- Walk through what you found, including dead ends and surprises
-- "First I looked at... but that didn't help because..."
-- "Then I found this thread where someone said... and that changed my thinking"
-- Weave the actual information into the story naturally
-- End with where you landed after all the digging""",
+        "instruction": """Write this as a narrative — walk the reader through the topic layer by layer.
+- Start with the surface-level understanding most people have
+- Then go deeper: "But when you look closer, it gets more complicated..."
+- Present conflicting opinions or sources honestly
+- Weave the actual information into a flowing narrative, not a list
+- Show the complexity: "On one hand... but then again..."
+- End with where the evidence seems to point, while acknowledging uncertainty""",
     },
     {
         "name": "contrarian_take",
@@ -177,7 +177,7 @@ TONE_MODIFIERS = [
     },
     {
         "name": "curious_nerd",
-        "instruction": "You fell down a rabbit hole on this topic and you're genuinely fascinated. Share interesting details that surprised you. Get a little nerdy about specifics. Your enthusiasm is showing but you're still grounded.",
+        "instruction": "Go deeper than usual into the details on this topic. Highlight counterintuitive findings and interesting specifics that most surface-level articles miss. Get a little nerdy about the numbers or mechanics. Show genuine interest in the nuances.",
     },
     {
         "name": "no_nonsense",
@@ -198,13 +198,13 @@ HUMAN_QUIRKS = [
     "Include exactly one parenthetical aside that's slightly off-topic but relatable.",
     "Start one paragraph with 'Look,' or 'Here's the thing' or 'Okay so' - something conversational.",
     "Have one sentence that's just 2-5 words. Fragment is fine.",
-    "Mention one thing you expected to find but didn't.",
-    "Include a brief moment of self-doubt or correction: 'Actually, wait — ' or 'I initially thought X but...'",
-    "Reference a vague time: 'I spent way too long on this', 'after like 30 tabs open'",
+    "Mention one aspect of this topic that seems under-discussed.",
+    "Include a brief moment of self-correction: 'Actually, wait — ' or 'Though now that I think about it...'",
     "Use one slightly informal word choice: 'kinda', 'tbh', 'nope', 'meh', 'sorta'",
-    "Have one place where you visibly change your mind mid-paragraph.",
-    "Include a sentence that starts with 'The weird thing is...' or 'What surprised me was...'",
-    "End one section a bit abruptly, like you ran out of things to say on that point.",
+    "Have one place where you visibly reconsider your position mid-paragraph.",
+    "Include a sentence that starts with 'The weird thing is...' or 'What stands out here is...'",
+    "End one section a bit abruptly, like there's not much more to say on that point.",
+    "Ask the reader a rhetorical question somewhere - just one.",
 ]
 
 # ==========================================
