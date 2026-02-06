@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-Pro Blog Bot v3.0 - Opus 4.6 Optimized
-=======================================
-Changelog from v2.1:
-  - Model: claude-opus-4-6 (simplified ID, no date suffix)
-  - Adaptive thinking: Claude decides when/how much to reason
-  - Effort parameter per stage (medium→plan, high→write, max→critique)
-  - Structured JSON output via output_config.format for reliable parsing
-  - 128K max output support
-  - Improved prompts leveraging deeper reasoning
-  - Proper thinking block handling in multi-turn conversations
-  - Removed deprecated: budget_tokens, interleaved-thinking beta header
+Pro Blog Bot v4.0 - Anti-Pattern Edition
+=========================================
+Changelog from v3.1:
+  - Duplicate prevention: fetches existing posts from Blogger, skips repeats
+  - Dynamic topic generation: Claude generates fresh topics based on trends
+    + existing post analysis (no more fixed pool exhaustion)
+  - Persona rotation: multiple system prompts to break structural patterns
+  - Internal linking: auto-inserts related post links for SEO
+  - Expanded category coverage: business, finance, tech, science added
+  - Smarter topic pool: fixed pool as fallback only, primary = dynamic
 """
 
 import os
@@ -30,41 +29,106 @@ from anthropic import Anthropic
 # ==========================================
 
 CURRENT_MODE = os.getenv('BLOG_MODE', 'APPROVAL')
-
-# Opus 4.6: simplified model ID (no date suffix)
-# Fallback: claude-opus-4-5-20251101 or claude-sonnet-4-5-20250929
 CLAUDE_MODEL = os.getenv('CLAUDE_MODEL', 'claude-opus-4-6')
 
 # ==========================================
-# 🎭 PERSONA - Research-based Curator
+# 🎭 PERSONA ROTATION
+# 여러 페르소나를 돌려서 "같은 사람이 쓴 것 같은" 패턴을 깬다
 # ==========================================
 
-SYSTEM_PROMPT = """You are a curious blogger who researches topics and summarizes findings for readers. You're NOT an expert and you don't pretend to be. You don't claim personal experience you don't have. Instead, you spend time looking into topics, comparing different sources and opinions, and presenting what you found in a clear, organized way.
+SYSTEM_PROMPTS = [
+    # --- Persona 1: The Researcher (original, refined) ---
+    {
+        "name": "researcher",
+        "prompt": """You are a curious blogger who researches topics and summarizes findings for readers. You're NOT an expert and you don't pretend to be. You spend time looking into topics, comparing different sources and opinions, and presenting what you found.
 
-Your value is in doing the research legwork so readers don't have to. You're like a friend who says "I looked into this for you, here's what I found."
+Your value is in doing the research legwork so readers don't have to.
 
 ## Your Writing Voice
 - Frame as research: "I looked into this...", "From what I found...", "Based on what people are saying..."
-- Cite general sources naturally: "Reddit users seem to agree...", "A lot of reviews mention...", "The common advice is..."
-- Add your take: "Honestly, this surprised me...", "I'm not sure I buy this, but...", "This makes sense to me because..."
-- Acknowledge gaps: "I couldn't find a clear answer on...", "Opinions are split on this..."
-- Be practical: Focus on actionable takeaways, not fluff
-- Show your work: Mention what you compared, what sources you looked at (generally)
-- Have opinions: After presenting findings, share what YOU think makes most sense
-- Admit uncertainty: "Take this with a grain of salt", "Your situation might be different"
+- Cite general sources naturally: "Reddit users seem to agree...", "A lot of reviews mention..."
+- Add your take: "Honestly, this surprised me...", "I'm not sure I buy this, but..."
+- Acknowledge gaps: "I couldn't find a clear answer on..."
+- Have opinions after presenting findings
+- Admit uncertainty when appropriate"""
+    },
 
-## ABSOLUTE RULES
+    # --- Persona 2: The Skeptic Journalist ---
+    {
+        "name": "skeptic",
+        "prompt": """You write like a skeptical tech journalist who's been burned by hype before. You don't trust marketing copy, you don't trust influencers, and you barely trust research papers until you've read the methodology section.
+
+## Your Writing Voice
+- Lead with the claim, then interrogate it: "Everyone says X. But when you actually check..."
+- Your default stance is friendly skepticism, not cynicism
+- You respect evidence but demand specifics
+- When companies make claims, you ask "compared to what?"
+- You use phrases like "here's the part they leave out", "the fine print says", "what nobody mentions"
+- You're fair — when something IS good, you say so clearly
+- You don't do "balanced for the sake of balance" — if one side is clearly right, say it"""
+    },
+
+    # --- Persona 3: The Practical Explainer ---
+    {
+        "name": "explainer",
+        "prompt": """You write like someone who's genuinely good at explaining complicated things simply. Think of a patient friend who actually understands the topic and can cut through the noise.
+
+## Your Writing Voice
+- Start with what the reader probably already knows, then build from there
+- Use analogies from everyday life — not forced ones, but ones that genuinely clarify
+- When there's jargon, translate it immediately: "egress fees (basically, the cost of downloading your own files)"
+- You organize information by what's most useful, not by what's most impressive
+- You use "here's what that means for you" a lot
+- Short sentences for key points. Longer ones for context and nuance.
+- You sometimes pause to say "okay, this next part matters" before an important section"""
+    },
+
+    # --- Persona 4: The Opinionated Blogger ---
+    {
+        "name": "opinionated",
+        "prompt": """You're a blogger with strong opinions backed by research. You don't hedge everything — when you have a clear view, you state it. But you're intellectually honest: you distinguish between what you know and what you think.
+
+## Your Writing Voice
+- Open with your position, then show your work
+- "I think X, and here's why" is your default structure
+- You're comfortable saying "this is bad" or "this is overrated" or "ignore the hype"
+- But you also say "I might be wrong about this because..."
+- You respect readers enough to disagree with popular opinion
+- You use "look" and "here's the thing" naturally
+- You sometimes argue with yourself mid-paragraph — it reads as honest thinking, not confusion"""
+    },
+
+    # --- Persona 5: The Data-Focused Analyst ---
+    {
+        "name": "analyst",
+        "prompt": """You approach topics like an analyst — looking at numbers, comparisons, and patterns rather than vibes and anecdotes. But you write for normal people, not other analysts.
+
+## Your Writing Voice
+- You love concrete comparisons: "Option A costs X, Option B costs Y, but when you factor in Z..."
+- Tables, specific numbers, and direct comparisons are your tools
+- You're suspicious of claims without numbers attached
+- When data is unavailable, you say so instead of guessing
+- You use "let's break this down" when approaching complex topics
+- You distinguish between correlation and causation naturally
+- Your conclusions are specific: "If you're in situation X, do Y. If you're in situation Z, do W."
+- You occasionally geek out about an interesting finding"""
+    },
+]
+
+# Shared rules appended to every persona
+UNIVERSAL_RULES = """
+
+## ABSOLUTE RULES (apply to every article)
 
 ### 1. NO FABRICATION
 - NEVER invent statistics or specific numbers
 - NEVER claim personal experience you don't have
 - NEVER make up quotes, names, emails, credentials, or sources
-- Frame everything as research: "From what I found...", "People seem to say..."
 - It's OK to say "I couldn't find reliable data on this"
 
 ### 2. NO AI-SOUNDING PHRASES
 Never use these words/phrases:
-"In today's fast-paced world", "comprehensive guide", "ultimate guide", "Let's dive in", "dive deep", "delve", "It's important to note that", "In conclusion", "The landscape of", "Navigate the complexities", "Game-changer", "Revolutionize", "Seamlessly", "Effortlessly", "Robust", "Leverage", "Embark on a journey", "Without further ado", "harness the power", "at the end of the day", "it goes without saying"
+"In today's fast-paced world", "comprehensive guide", "ultimate guide", "Let's dive in", "dive deep", "delve", "It's important to note that", "In conclusion", "The landscape of", "Navigate the complexities", "Game-changer", "Revolutionize", "Seamlessly", "Effortlessly", "Robust", "Leverage", "Embark on a journey", "Without further ado", "harness the power", "at the end of the day", "it goes without saying", "In the realm of", "Buckle up", "Here's the kicker"
 
 ### 3. PROVIDE REAL VALUE
 - Don't state the obvious
@@ -74,16 +138,14 @@ Never use these words/phrases:
 - Every paragraph must add something new
 
 ### 4. NATURAL STRUCTURE
-- Vary your format - not every post needs the same skeleton
+- Vary your format — not every post needs the same skeleton
 - Not everything needs bullet points
 - Vary paragraph lengths
-- Write like you're explaining to a friend
 - Headers should be useful, not clever
 """
 
 # ==========================================
 # ✏️ WRITING FORMAT VARIATIONS
-# 매번 다른 글 구조를 사용해서 패턴 반복을 깨뜨림
 # ==========================================
 
 WRITING_FORMATS = [
@@ -155,11 +217,28 @@ WRITING_FORMATS = [
 - The tone should be slightly impatient - like you're annoyed by how much fluff other articles have on this topic
 - End with exact next steps: "Do this, then this, then this." """,
     },
+    {
+        "name": "story_then_lesson",
+        "instruction": """Open with a specific scenario or story (real or clearly hypothetical), then extract the lesson.
+- First 2-3 paragraphs: set a scene. "Imagine you're..." or describe a real situation you read about.
+- Middle: break down what went wrong/right and why
+- End: concrete takeaways, but framed through the story
+- This format works best when the story creates an "aha" moment
+- Keep the story grounded — no melodrama""",
+    },
+    {
+        "name": "before_after",
+        "instruction": """Structure around a before/after transformation.
+- "Most people do X. Here's why Y works better."
+- Show the conventional approach and its problems first
+- Then show the alternative with specific evidence
+- Use concrete examples, not abstract principles
+- The "after" should feel achievable, not aspirational""",
+    },
 ]
 
 # ==========================================
 # 🎭 TONE VARIATIONS
-# 같은 사람이라도 글마다 기분이 다름
 # ==========================================
 
 TONE_MODIFIERS = [
@@ -177,7 +256,7 @@ TONE_MODIFIERS = [
     },
     {
         "name": "curious_nerd",
-        "instruction": "Go deeper than usual into the details on this topic. Highlight counterintuitive findings and interesting specifics that most surface-level articles miss. Get a little nerdy about the numbers or mechanics. Show genuine interest in the nuances.",
+        "instruction": "Go deeper than usual into the details. Highlight counterintuitive findings and interesting specifics that most surface-level articles miss. Get a little nerdy about the numbers or mechanics. Show genuine interest in nuances.",
     },
     {
         "name": "no_nonsense",
@@ -185,13 +264,16 @@ TONE_MODIFIERS = [
     },
     {
         "name": "laid_back",
-        "instruction": "Relaxed, unhurried tone. Take your time. Not everything needs a strong opinion - sometimes 'eh, it depends' is the honest answer. Use casual language. It's okay to say 'I don't really care about this part but here's what I found anyway.'",
+        "instruction": "Relaxed, unhurried tone. Take your time. Not everything needs a strong opinion — sometimes 'eh, it depends' is the honest answer. Use casual language. It's okay to say 'I don't really care about this part but here's what I found anyway.'",
+    },
+    {
+        "name": "wry_humor",
+        "instruction": "Dry wit today. Not trying to be funny, but let the absurdity of things speak for itself. Deadpan observations. The occasional one-liner. Think more 'amused sigh' than 'comedy blog'.",
     },
 ]
 
 # ==========================================
 # 🧬 HUMAN QUIRKS
-# AI 글에 부족한 "불완전한 인간다움"을 주입하는 지시
 # ==========================================
 
 HUMAN_QUIRKS = [
@@ -202,78 +284,88 @@ HUMAN_QUIRKS = [
     "Include a brief moment of self-correction: 'Actually, wait — ' or 'Though now that I think about it...'",
     "Use one slightly informal word choice: 'kinda', 'tbh', 'nope', 'meh', 'sorta'",
     "Have one place where you visibly reconsider your position mid-paragraph.",
-    "Include a sentence that starts with 'The weird thing is...' or 'What stands out here is...'",
+    "Include a sentence that starts with 'The weird thing is...' or 'What nobody mentions is...'",
     "End one section a bit abruptly, like there's not much more to say on that point.",
-    "Ask the reader a rhetorical question somewhere - just one.",
+    "Ask the reader a rhetorical question somewhere — just one.",
+    "Reference a specific subreddit or forum thread vaguely: 'there was this thread where...'",
+    "Interrupt yourself once: use an em dash to shift direction mid-sentence.",
 ]
 
 # ==========================================
-# 📝 TOPIC POOLS
+# 📝 CATEGORY DEFINITIONS (for dynamic topic generation)
 # ==========================================
 
-TOPICS = {
+CATEGORIES = {
+    'APPROVAL': {
+        'Productivity': 'Time management, tools, workflows, focus techniques, work habits',
+        'Wellness': 'Physical health, mental health, ergonomics, sleep, exercise, stress',
+        'Tech_Tips': 'Software, privacy tools, browser tips, cloud services, security basics',
+        'Learning': 'Study methods, online courses, skill acquisition, language learning',
+        'Business': 'Startups, remote work culture, freelancing, career strategy, hiring trends',
+        'Science': 'Interesting research findings, psychology studies, behavioral economics',
+        'Finance_Basics': 'Budgeting, saving, investing basics, financial literacy, common mistakes',
+        'Digital_Life': 'Social media impact, digital privacy, screen time, online communities',
+    },
+    'MONEY': {
+        'SaaS_Review': 'Project management, CRM, email marketing, collaboration tools',
+        'Hosting': 'Web hosting, cloud, CDN, domain, website builders',
+        'Finance': 'Budgeting apps, investing platforms, credit cards, banking',
+        'Security_Tools': 'VPNs, password managers, antivirus, backup solutions',
+        'AI_Tools': 'AI writing tools, image generators, automation, chatbots',
+        'Hardware': 'Laptops, monitors, keyboards, mice, ergonomic gear',
+    }
+}
+
+# ==========================================
+# 📝 FALLBACK TOPIC POOLS (used when dynamic generation fails)
+# ==========================================
+
+FALLBACK_TOPICS = {
     'APPROVAL': {
         'Productivity': [
-            'Pomodoro vs Time Blocking: I Compared What Actually Works',
-            'Why Do Some People Swear by 5AM Routines? I Looked Into It',
-            'Notion vs Obsidian: What Reddit Actually Says',
-            'The Real Reason Most To-Do Lists Fail (According to Research)',
-            'I Read 20 Articles on Deep Work - Here Are the Parts That Actually Matter',
-            'Digital Minimalism: What Happens When You Actually Try It',
+            'Pomodoro vs Time Blocking: Which One Actually Sticks?',
             'The Second Brain Method: Overhyped or Actually Useful?',
-            'Why Most Habit Trackers Get Abandoned (And What Might Work Instead)',
+            'Why Most Habit Trackers Get Abandoned Within a Month',
+            'Digital Minimalism: What Happens When You Actually Try It',
         ],
         'Wellness': [
-            'Standing Desks: Hype or Legit? What the Studies Say',
-            'I Compared 5 Sleep Tracking Methods - Here\'s What I Found',
-            'What Actually Helps With Burnout (And What Doesn\'t)',
-            'Blue Light Glasses: I Looked Into Whether They\'re Worth It',
-            'The Science Behind Why Walking Meetings Might Work',
-            'Cold Showers for Health: What Does the Research Actually Show?',
+            'Standing Desks: What the Studies Actually Say',
+            'Cold Showers for Health: Separating Hype from Evidence',
             'Meditation Apps Compared: Do Any of Them Actually Work?',
             'Ergonomic Keyboards: Worth the Investment or Marketing Trick?',
         ],
         'Tech_Tips': [
-            'Password Managers Compared: What Users Actually Complain About',
-            'VPN Services: Cutting Through the Marketing BS',
+            'Password Managers: What Users Actually Complain About',
             'Why Tech People Keep Recommending Linux (And Why You Probably Shouldn\'t Switch)',
-            'Cloud Storage Pricing is Confusing - I Broke It Down',
-            'Ad Blockers in 2025: What Still Works and What Got Broken',
             'Browser Extensions That Are Actually Worth Installing',
-            'Email Providers Beyond Gmail: What Are the Real Options?',
             'Two-Factor Authentication: The Options Ranked by Actual Security',
         ],
-        'Learning': [
-            'Online Course Completion Rates Are Terrible - Here\'s Why',
-            'Spaced Repetition: The Study Method Nobody Talks About',
-            'Free Coding Resources: Which Ones Are Actually Good?',
-            'Language Learning Apps: What Linguists Think About Them',
-            'YouTube vs Paid Courses: When Free is Actually Better',
+        'Business': [
+            'Remote Work Policies: What Companies Got Wrong in 2025',
+            'The Real Cost of Starting a Side Business (Not the Instagram Version)',
+            'Why Most Networking Advice Is Useless — And What Works Instead',
+        ],
+        'Science': [
+            'The Replication Crisis: Why You Shouldn\'t Trust That One Study',
+            'Sunk Cost Fallacy: Why Knowing About It Doesn\'t Help You Avoid It',
+        ],
+        'Finance_Basics': [
+            'Index Funds vs Individual Stocks: What the Data Shows',
+            'Subscription Creep: How Small Monthly Fees Add Up Fast',
         ],
     },
     'MONEY': {
         'SaaS_Review': [
             'Asana vs Monday vs ClickUp: What Teams Actually Say After 6 Months',
             'CRM Software: The Hidden Costs Nobody Mentions Upfront',
-            'Email Marketing Tools: I Compared Pricing For a 10K List',
-            'Project Management Tools: Feature Comparison That Actually Matters',
-            'Why Some Companies Ditch Slack for Discord (And Vice Versa)',
-            'Note-Taking Apps for Teams: Beyond the Feature Lists',
         ],
         'Hosting': [
             'Cheap Web Hosting: What You Actually Get for $3/Month',
-            'WordPress Hosting Compared: Shared vs Managed vs VPS',
             'The Real Cost of "Unlimited" Hosting Plans',
-            'Website Builders vs Custom Sites: When Each Makes Sense',
-            'CDN Pricing Explained: Do Small Sites Even Need One?',
         ],
         'Finance': [
             'Budgeting Apps: Which Ones People Actually Keep Using',
-            'Investing Apps for Beginners: Fees Compared Simply',
-            'Credit Card Rewards: When They\'re Worth It vs When They\'re Not',
-            'Side Hustle Tax Stuff: What I Found Out The Hard Way (Research Edition)',
             'Buy Now Pay Later Services: The Fine Print Nobody Reads',
-            'High-Yield Savings Accounts: Are They Really Worth Switching For?',
         ],
     }
 }
@@ -290,10 +382,8 @@ class SecurityValidator:
     def sanitize_html(content):
         if not content:
             return ""
-        # Remove markdown code blocks
         content = re.sub(r'^```html?\s*\n?', '', content, flags=re.IGNORECASE)
         content = re.sub(r'\n?```\s*$', '', content)
-        # Also catch mid-content code blocks
         content = re.sub(r'```html?\s*\n?', '', content, flags=re.IGNORECASE)
         content = re.sub(r'\n?```', '', content)
 
@@ -325,8 +415,8 @@ class SecurityValidator:
 # 🤖 MAIN BOT
 # ==========================================
 
-class ProBlogBotV3:
-    """Opus 4.6 최적화 블로그 봇"""
+class ProBlogBotV4:
+    """v4.0 - Anti-Pattern Edition"""
 
     def __init__(self):
         self.anthropic_key = os.getenv('ANTHROPIC_API_KEY')
@@ -341,37 +431,199 @@ class ProBlogBotV3:
         self.conversation_history = []
 
         # 매 실행마다 랜덤 조합 선택
+        self.persona = random.choice(SYSTEM_PROMPTS)
+        self.system_prompt = self.persona["prompt"] + UNIVERSAL_RULES
         self.writing_format = random.choice(WRITING_FORMATS)
         self.tone = random.choice(TONE_MODIFIERS)
-        self.quirks = random.sample(HUMAN_QUIRKS, 3)  # 3개만 선택
+        self.quirks = random.sample(HUMAN_QUIRKS, 3)
+
+        # 기존 포스트 캐시 (중복 방지 + 내부 링크용)
+        self.existing_posts = []
+
+    # ------------------------------------------
+    # Blogger API helpers
+    # ------------------------------------------
+
+    def _get_blogger_service(self):
+        """Blogger API 서비스"""
+        from google.auth.transport.requests import Request
+
+        user_info = {
+            'client_id': os.getenv('OAUTH_CLIENT_ID'),
+            'client_secret': os.getenv('OAUTH_CLIENT_SECRET'),
+            'refresh_token': os.getenv('OAUTH_REFRESH_TOKEN'),
+            'token_uri': 'https://oauth2.googleapis.com/token',
+        }
+
+        creds = Credentials.from_authorized_user_info(
+            user_info,
+            scopes=['https://www.googleapis.com/auth/blogger'],
+        )
+        creds.refresh(Request())
+        return build('blogger', 'v3', credentials=creds)
+
+    def fetch_existing_posts(self):
+        """
+        Blogger에서 기존 포스트 목록을 가져온다.
+        - 중복 체크용: 제목 비교
+        - 내부 링크용: URL + 제목 + 라벨
+        """
+        print("📚 Fetching existing posts from Blogger...")
+
+        if not self.blog_id:
+            print("   ⚠️ No BLOGGER_BLOG_ID — skipping")
+            return []
+
+        try:
+            service = self._get_blogger_service()
+            posts = []
+            request = service.posts().list(
+                blogId=self.blog_id,
+                maxResults=50,  # 최근 50개면 충분
+                status='live',
+                fields='items(id,title,url,labels,published),nextPageToken',
+            )
+
+            while request:
+                response = request.execute()
+                items = response.get('items', [])
+                for item in items:
+                    posts.append({
+                        'id': item.get('id'),
+                        'title': item.get('title', ''),
+                        'url': item.get('url', ''),
+                        'labels': item.get('labels', []),
+                        'published': item.get('published', ''),
+                    })
+                # 다음 페이지
+                request = service.posts().list_next(request, response)
+
+            # Draft도 가져오기 (중복 방지)
+            try:
+                draft_request = service.posts().list(
+                    blogId=self.blog_id,
+                    maxResults=50,
+                    status='draft',
+                    fields='items(id,title,url,labels)',
+                )
+                draft_response = draft_request.execute()
+                for item in draft_response.get('items', []):
+                    posts.append({
+                        'id': item.get('id'),
+                        'title': item.get('title', ''),
+                        'url': item.get('url', ''),
+                        'labels': item.get('labels', []),
+                        'published': '',
+                    })
+            except Exception:
+                pass  # Draft 접근 실패해도 괜찮음
+
+            self.existing_posts = posts
+            print(f"   ✅ Found {len(posts)} existing posts")
+            return posts
+
+        except Exception as e:
+            print(f"   ⚠️ Failed to fetch posts: {e}")
+            return []
+
+    def is_duplicate(self, title):
+        """
+        제목 유사도 비교로 중복 체크.
+        정확 일치 + 핵심 키워드 겹침 체크.
+        """
+        if not self.existing_posts:
+            return False
+
+        title_lower = title.lower().strip()
+        # 불용어 제거 후 핵심 키워드 추출
+        stop_words = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'i', 'you', 'it',
+                      'that', 'this', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+                      'of', 'with', 'by', 'from', 'what', 'why', 'how', 'when', 'where',
+                      'do', 'does', 'did', 'have', 'has', 'had', 'not', 'no', 'so',
+                      'if', 'my', 'your', 'our', 'their', 'about', 'into', 'up', 'here',
+                      'there', 'some', 'most', 'really', 'actually', 'just', 'still'}
+
+        def extract_keywords(t):
+            words = re.findall(r'[a-z]+', t.lower())
+            return set(w for w in words if w not in stop_words and len(w) > 2)
+
+        new_keywords = extract_keywords(title)
+
+        for post in self.existing_posts:
+            existing_lower = post['title'].lower().strip()
+
+            # 1. 정확 일치
+            if title_lower == existing_lower:
+                return True
+
+            # 2. 키워드 70% 이상 겹침
+            existing_keywords = extract_keywords(post['title'])
+            if existing_keywords and new_keywords:
+                overlap = len(new_keywords & existing_keywords)
+                similarity = overlap / max(len(new_keywords), len(existing_keywords))
+                if similarity >= 0.7:
+                    print(f"   ⚠️ Too similar to existing: '{post['title']}' ({similarity:.0%})")
+                    return True
+
+        return False
+
+    def find_related_posts(self, title, labels, max_links=3):
+        """
+        현재 글과 관련된 기존 포스트를 찾아 내부 링크용으로 반환.
+        라벨 매칭 + 키워드 겹침 기반.
+        """
+        if not self.existing_posts:
+            return []
+
+        stop_words = {'the', 'a', 'an', 'is', 'are', 'i', 'you', 'it', 'that', 'this',
+                      'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+                      'what', 'why', 'how', 'do', 'does', 'not', 'here', 'about'}
+
+        def extract_keywords(t):
+            words = re.findall(r'[a-z]+', t.lower())
+            return set(w for w in words if w not in stop_words and len(w) > 2)
+
+        new_keywords = extract_keywords(title)
+        new_labels = set(l.lower() for l in labels) if labels else set()
+
+        scored = []
+        for post in self.existing_posts:
+            if not post.get('url'):
+                continue
+
+            score = 0
+
+            # 라벨 겹침
+            post_labels = set(l.lower() for l in post.get('labels', []))
+            label_overlap = len(new_labels & post_labels)
+            score += label_overlap * 2
+
+            # 키워드 겹침
+            post_keywords = extract_keywords(post['title'])
+            keyword_overlap = len(new_keywords & post_keywords)
+            score += keyword_overlap
+
+            if score > 0:
+                scored.append((score, post))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [post for _, post in scored[:max_links]]
 
     # ------------------------------------------
     # API call helpers
     # ------------------------------------------
 
     def _call_claude(self, messages, effort="high", max_tokens=4096, use_json_output=False, json_schema=None):
-        """
-        Opus 4.6 API 호출 - adaptive thinking + effort parameter 활용
-
-        Args:
-            messages: 대화 히스토리
-            effort: "low" | "medium" | "high" | "max" (4.6 신규)
-            max_tokens: 최대 출력 토큰
-            use_json_output: JSON structured output 사용 여부
-            json_schema: JSON 스키마 (use_json_output=True일 때)
-        """
+        """Opus 4.6 API 호출"""
         kwargs = {
             "model": CLAUDE_MODEL,
             "max_tokens": max_tokens,
-            "system": SYSTEM_PROMPT,
+            "system": self.system_prompt,  # ← 이제 랜덤 페르소나 사용
             "messages": messages,
-            # Opus 4.6: adaptive thinking (replaces type:"enabled" + budget_tokens)
             "thinking": {"type": "adaptive"},
-            # Opus 4.6: effort is GA (no beta header needed)
             "output_config": {"effort": effort},
         }
 
-        # Opus 4.6: structured JSON output via output_config.format
         if use_json_output and json_schema:
             kwargs["output_config"]["format"] = {
                 "type": "json_schema",
@@ -382,10 +634,7 @@ class ProBlogBotV3:
         return response
 
     def _extract_text(self, response):
-        """
-        Adaptive thinking 응답에서 텍스트만 추출.
-        response.content에 thinking/text 블록이 섞여 있을 수 있음.
-        """
+        """Adaptive thinking 응답에서 텍스트만 추출"""
         text_parts = []
         for block in response.content:
             if block.type == "text":
@@ -393,15 +642,10 @@ class ProBlogBotV3:
         return "\n".join(text_parts)
 
     def _append_to_history(self, role, response_or_text):
-        """
-        Multi-turn 대화 히스토리 관리.
-        Opus 4.6 adaptive thinking에서는 thinking 블록을
-        그대로 다시 보내야 reasoning flow가 유지됨.
-        """
+        """Multi-turn 대화 히스토리 관리"""
         if role == "user":
             self.conversation_history.append({"role": "user", "content": response_or_text})
         elif role == "assistant":
-            # response 객체의 전체 content를 보존 (thinking blocks 포함)
             content_blocks = []
             for block in response_or_text.content:
                 if block.type == "thinking":
@@ -418,16 +662,124 @@ class ProBlogBotV3:
             self.conversation_history.append({"role": "assistant", "content": content_blocks})
 
     # ------------------------------------------
+    # Step 0: Dynamic Topic Generation
+    # ------------------------------------------
+
+    def step_0_generate_topic(self):
+        """
+        0단계: 동적 토픽 생성
+        - 기존 포스트 목록을 Claude에게 보여주고
+        - 겹치지 않는 새로운 토픽을 생성하게 함
+        - 실패시 fallback pool에서 선택
+        """
+        print("🎯 [0/7] Generating fresh topic...")
+
+        existing_titles = [p['title'] for p in self.existing_posts]
+        existing_titles_str = "\n".join(f"- {t}" for t in existing_titles[-30:])  # 최근 30개
+
+        categories = CATEGORIES[CURRENT_MODE]
+        category_str = "\n".join(f"- {k}: {v}" for k, v in categories.items())
+
+        topic_schema = {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "One of the category keys listed"
+                },
+                "topic_title": {
+                    "type": "string",
+                    "description": "A specific, engaging blog post title"
+                },
+                "why_this_topic": {
+                    "type": "string",
+                    "description": "One sentence on why this topic would attract readers"
+                }
+            },
+            "required": ["category", "topic_title", "why_this_topic"]
+        }
+
+        prompt = f"""I need a fresh blog post topic for my English-language blog "Insight Crossroad".
+
+## Available Categories
+{category_str}
+
+## Already Published (DO NOT repeat or closely overlap with these)
+{existing_titles_str if existing_titles_str else "(No posts yet)"}
+
+## Requirements
+- The topic should be something people actually search for
+- It should have a specific angle, not just a broad topic (bad: "AI Tools" — good: "Why ChatGPT's Free Tier Is Still Better Than Most Paid AI Tools")
+- Avoid generic self-help or obvious advice topics
+- The title should promise specific value or a surprising finding
+- Pick a category that's UNDERREPRESENTED in the existing posts list above
+- Make sure it's clearly different from every title in the existing posts list
+
+Generate one topic."""
+
+        try:
+            response = self._call_claude(
+                messages=[{"role": "user", "content": prompt}],
+                effort="medium",
+                max_tokens=1000,
+                use_json_output=True,
+                json_schema=topic_schema,
+            )
+
+            text = self._extract_text(response)
+            result = json.loads(text)
+
+            topic = result['topic_title']
+            category = result['category']
+
+            # 카테고리 유효성 체크
+            valid_categories = list(categories.keys())
+            if category not in valid_categories:
+                category = random.choice(valid_categories)
+
+            # 중복 체크
+            if self.is_duplicate(topic):
+                print(f"   ⚠️ Generated topic is duplicate, retrying...")
+                return self._topic_fallback()
+
+            print(f"   ✅ Generated: [{category}] {topic}")
+            print(f"   💡 Why: {result.get('why_this_topic', 'N/A')}")
+            return category, topic
+
+        except Exception as e:
+            print(f"   ⚠️ Dynamic topic generation failed: {e}")
+            return self._topic_fallback()
+
+    def _topic_fallback(self):
+        """동적 생성 실패시 fallback pool에서 중복 아닌 것 선택"""
+        print("   ↳ Falling back to topic pool...")
+        pool = FALLBACK_TOPICS.get(CURRENT_MODE, {})
+
+        # 모든 토픽을 셔플해서 중복 아닌 첫 번째를 선택
+        all_topics = []
+        for cat, topics in pool.items():
+            for t in topics:
+                all_topics.append((cat, t))
+
+        random.shuffle(all_topics)
+
+        for cat, topic in all_topics:
+            if not self.is_duplicate(topic):
+                print(f"   ✅ Fallback: [{cat}] {topic}")
+                return cat, topic
+
+        # 전부 중복이면 그냥 랜덤 (최악의 경우)
+        cat, topic = random.choice(all_topics)
+        print(f"   ⚠️ All fallbacks are duplicates, using: {topic}")
+        return cat, topic
+
+    # ------------------------------------------
     # Pipeline stages
     # ------------------------------------------
 
     def step_1_plan(self, topic):
-        """
-        1단계: 기획 (effort: medium)
-        - medium effort로 빠르게 구조 잡기
-        - Structured JSON output으로 안정적 파싱
-        """
-        print(f"🧠 [1/6] Planning article angle...")
+        """1단계: 기획 (effort: medium)"""
+        print(f"🧠 [1/7] Planning article angle...")
 
         plan_schema = {
             "type": "object",
@@ -489,7 +841,7 @@ Create a plan that:
 
             response = self._call_claude(
                 messages=self.conversation_history,
-                effort="medium",  # Planning doesn't need max effort
+                effort="medium",
                 max_tokens=2000,
                 use_json_output=True,
                 json_schema=plan_schema,
@@ -499,7 +851,6 @@ Create a plan that:
             text = self._extract_text(response)
             plan = json.loads(text)
 
-            # Ensure image_queries has exactly 2 items
             if len(plan.get("image_queries", [])) < 2:
                 plan["image_queries"] = ["workspace productivity", "research notes"]
 
@@ -507,13 +858,12 @@ Create a plan that:
 
         except Exception as e:
             print(f"⚠️ Planning failed: {e}")
-            # Fallback: try without structured output
             return self._plan_fallback(topic)
 
     def _plan_fallback(self, topic):
-        """Structured output 실패시 일반 JSON 파싱으로 fallback"""
+        """Structured output 실패시 fallback"""
         print("   ↳ Trying fallback planning...")
-        self.conversation_history = []  # Reset
+        self.conversation_history = []
 
         prompt = f"""I need to write about: "{topic}"
 
@@ -539,7 +889,6 @@ JSON only, no markdown formatting:"""
             self._append_to_history("assistant", response)
             text = self._extract_text(response)
 
-            # Try to extract JSON
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
             elif "```" in text:
@@ -552,13 +901,11 @@ JSON only, no markdown formatting:"""
             return None
 
     def step_2_write_draft(self, plan):
-        """
-        2단계: 초안 작성 (effort: high)
-        - 매 실행마다 다른 포맷/톤/퀴크 조합 적용
-        """
-        print(f"✍️ [2/6] Writing first draft...")
+        """2단계: 초안 작성 (effort: high)"""
+        print(f"✍️ [2/7] Writing first draft...")
         print(f"   📐 Format: {self.writing_format['name']}")
         print(f"   🎭 Tone: {self.tone['name']}")
+        print(f"   👤 Persona: {self.persona['name']}")
 
         quirks_str = "\n".join(f"- {q}" for q in self.quirks)
 
@@ -587,10 +934,9 @@ Write the full blog post in HTML format.
 - Output raw HTML only. No <html>, <head>, <body> tags. No markdown code blocks.
 
 ## Content requirements
-- Frame as research/curation, not personal expertise
-- Include specific comparisons and concrete details
 - NO fake experiences, stats, emails, names, or credentials
-- NO generic filler paragraphs"""
+- NO generic filler paragraphs
+- Every section must add concrete value"""
 
         self._append_to_history("user", prompt)
 
@@ -610,36 +956,32 @@ Write the full blog post in HTML format.
             return None
 
     def step_3_self_critique(self, draft):
-        """
-        3단계: 자기 비평 + 개선 (effort: max)
-        - Opus 4.6의 'max' effort로 가장 깊은 분석
-        - 포맷/톤 일관성도 체크
-        """
-        print(f"🔍 [3/6] Self-critique and improvement (max effort)...")
+        """3단계: 자기 비평 + 개선 (effort: max)"""
+        print(f"🔍 [3/7] Self-critique and improvement...")
 
         critique_and_fix_prompt = f"""Review the draft you just wrote, then produce an improved version.
 
 ## Critique Checklist (be ruthless)
-1. AI PHRASES: Any "dive deep", "comprehensive", "landscape", "embark", "leverage", "harness", "in today's", "game-changer", "it's worth noting", "without further ado"?
-2. FABRICATION: Any invented stats, fake experiences, made-up sources, fake emails or names?
-3. FLUFF: Any paragraphs that don't add real information? Obvious statements?
+1. AI PHRASES: Any "dive deep", "comprehensive", "landscape", "embark", "leverage", "harness", "in today's", "game-changer", "it's worth noting", "without further ado", "in the realm of"?
+2. FABRICATION: Any invented stats, fake experiences, made-up sources?
+3. FLUFF: Any paragraphs that don't add real information?
 4. VALUE: Does every section teach something specific and new?
 5. TONE CHECK: Does it match the intended tone ({self.tone['name']})? Or did it slip into generic AI voice?
-6. FORMAT CHECK: Does it follow the intended format ({self.writing_format['name']})? Or did it default to the same old intro-body-conclusion template?
-7. PATTERN DETECTION: Read the article as if you're a skeptical reader. Does anything feel template-y, repetitive, or like "AI wrote this"?
-8. CLAIMS: Anything stated as fact that should be framed as "from what I found"?
+6. FORMAT CHECK: Does it follow the intended format ({self.writing_format['name']})? Or did it default to the same old template?
+7. PATTERN DETECTION: Does the opening follow the "I went down a rabbit hole" pattern? If so, CHANGE IT.
+8. SENTENCE VARIETY: Are most sentences the same length? Mix it up aggressively.
+9. CLAIMS: Anything stated as fact that should be framed more carefully?
 
 ## Your Task
-Rewrite the COMPLETE article fixing all problems. Make sure it genuinely follows the {self.writing_format['name']} format and {self.tone['name']} tone throughout.
-
-Output ONLY the improved HTML. No commentary, no issue list, no markdown code blocks. Just the final clean HTML article."""
+Rewrite the COMPLETE article fixing all problems.
+Output ONLY the improved HTML. No commentary. No markdown code blocks."""
 
         self._append_to_history("user", critique_and_fix_prompt)
 
         try:
             response = self._call_claude(
                 messages=self.conversation_history,
-                effort="max",  # 4.6 new: deepest reasoning for quality check
+                effort="max",
                 max_tokens=8000,
             )
 
@@ -658,32 +1000,26 @@ Output ONLY the improved HTML. No commentary, no issue list, no markdown code bl
             return draft
 
     def step_4_humanize(self, content):
-        """
-        4단계: 사람다움 후처리 (effort: high)
-        - 별도 대화로 "편집자" 역할을 수행
-        - 글의 내용은 유지하면서 AI 냄새를 제거
-        """
-        print(f"🧑 [4/6] Humanizing pass...")
+        """4단계: 사람다움 후처리 (effort: high)"""
+        print(f"🧑 [4/7] Humanizing pass...")
 
-        # 새 대화 (기존 히스토리와 분리 - 신선한 눈으로 봐야 함)
-        humanize_prompt = f"""You are a human editor, not a writer. Your job is to take this article and make small edits so it reads less like AI output and more like a real person's blog post.
+        humanize_prompt = f"""You are a human editor, not a writer. Your job is to make small edits so this reads less like AI output and more like a real person's blog post.
 
 ## What to do:
-- Vary sentence length MORE. Mix 5-word sentences with 25-word ones. AI tends to keep everything medium-length.
+- Vary sentence length MORE. Mix 5-word sentences with 25-word ones.
 - Break up any paragraph that's more than 4 sentences.
-- If the opening sentence is generic or throat-clearing, cut it or replace it with something specific.
-- Swap a few "proper" words for casual ones (e.g. "utilize" → "use", "purchase" → "buy", "numerous" → "a lot of")
+- If the opening is generic, cut it or replace with something specific.
+- Swap a few "proper" words for casual ones ("utilize"→"use", "purchase"→"buy")
 - Add 1-2 sentence fragments. Not every sentence needs a verb.
-- Make sure transitions between sections aren't all smooth. Real writing sometimes jumps.
-- If every section is about the same length, make one noticeably shorter or longer.
-- Remove any sentence that's just restating what was already said in different words.
+- Make sure transitions between sections aren't all smooth.
+- If every section is about the same length, make one shorter or longer.
+- Remove any sentence that's just restating what was already said.
 
 ## What NOT to do:
 - Don't change the facts or claims
 - Don't add fake personal experiences
-- Don't make it worse or less informative
-- Don't add emojis or excessive exclamation marks
-- Don't change the overall structure or format
+- Don't add emojis or exclamation marks
+- Don't change the overall structure
 - Don't remove the [IMAGE: ...] markers
 
 ## Input article:
@@ -714,10 +1050,10 @@ The edited HTML article only. No commentary. No markdown code blocks."""
 
     def step_5_add_images(self, content):
         """5단계: Unsplash 이미지 삽입"""
-        print(f"🎨 [5/6] Adding images...")
+        print(f"🎨 [5/7] Adding images...")
 
         if not self.unsplash_key:
-            print("   ⚠️ No Unsplash key - skipping images")
+            print("   ⚠️ No Unsplash key — skipping images")
             return re.sub(r'\[IMAGE:.*?\]', '', content)
 
         markers = re.findall(r'\[IMAGE:.*?\]', content)
@@ -769,9 +1105,36 @@ The edited HTML article only. No commentary. No markdown code blocks."""
 
         return content
 
-    def step_6_publish(self, title, content, category):
-        """6단계: Blogger 발행"""
-        print(f"🚀 [6/6] Publishing to Blogger...")
+    def step_6_add_internal_links(self, content, title, labels):
+        """
+        6단계: 내부 링크 삽입
+        - 관련 포스트를 찾아서 글 하단에 "You might also like" 섹션 추가
+        - SEO에 중요한 내부 링크 구조 형성
+        """
+        print(f"🔗 [6/7] Adding internal links...")
+
+        related = self.find_related_posts(title, labels)
+
+        if not related:
+            print("   ℹ️ No related posts found — skipping")
+            return content
+
+        links_html = '\n<div style="margin-top: 3rem; padding: 1.5rem; background: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb;">\n'
+        links_html += '<h3 style="margin-top: 0; color: #374151; font-size: 1.125rem;">You might also find these useful</h3>\n<ul style="padding-left: 1.25rem;">\n'
+
+        for post in related:
+            post_title = post['title']
+            post_url = post['url']
+            links_html += f'<li style="margin-bottom: 0.5rem;"><a href="{post_url}" style="color: #2563eb; text-decoration: none;">{post_title}</a></li>\n'
+
+        links_html += '</ul>\n</div>'
+
+        print(f"   ✅ Added {len(related)} internal links")
+        return content + links_html
+
+    def step_7_publish(self, title, content, category):
+        """7단계: Blogger 발행"""
+        print(f"🚀 [7/7] Publishing to Blogger...")
 
         css = '''
 <style>
@@ -874,24 +1237,6 @@ The edited HTML article only. No commentary. No markdown code blocks."""
             print(f"❌ Publish failed: {e}")
             return None
 
-    def _get_blogger_service(self):
-        """Blogger API 서비스"""
-        from google.auth.transport.requests import Request
-
-        user_info = {
-            'client_id': os.getenv('OAUTH_CLIENT_ID'),
-            'client_secret': os.getenv('OAUTH_CLIENT_SECRET'),
-            'refresh_token': os.getenv('OAUTH_REFRESH_TOKEN'),
-            'token_uri': 'https://oauth2.googleapis.com/token',
-        }
-
-        creds = Credentials.from_authorized_user_info(
-            user_info,
-            scopes=['https://www.googleapis.com/auth/blogger'],
-        )
-        creds.refresh(Request())
-        return build('blogger', 'v3', credentials=creds)
-
     # ------------------------------------------
     # Main
     # ------------------------------------------
@@ -899,61 +1244,75 @@ The edited HTML article only. No commentary. No markdown code blocks."""
     def run(self):
         """메인 파이프라인"""
         print(f"""
-╔═══════════════════════════════════════════════════════════════╗
-║  Pro Blog Bot v3.1 - Opus 4.6 + Human Touch Edition         ║
-║  Mode: {CURRENT_MODE:10s} | Model: {CLAUDE_MODEL:28s}   ║
-║  Features: Adaptive Thinking · Effort Scaling · Humanizer    ║
-╠═══════════════════════════════════════════════════════════════╣
-║  Format: {self.writing_format['name']:15s} | Tone: {self.tone['name']:20s} ║
-╚═══════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║  Pro Blog Bot v4.0 - Anti-Pattern Edition                        ║
+║  Mode: {CURRENT_MODE:10s} | Model: {CLAUDE_MODEL:28s}       ║
+║  Persona: {self.persona['name']:12s} | Format: {self.writing_format['name']:15s}  ║
+║  Tone: {self.tone['name']:15s}                                       ║
+║  Features: Dedup · Dynamic Topics · Persona Rotation · Links     ║
+╚═══════════════════════════════════════════════════════════════════╝
 """)
 
-        topic_pool = TOPICS[CURRENT_MODE]
-        category = random.choice(list(topic_pool.keys()))
-        topic = random.choice(topic_pool[category])
+        # Step 0: Fetch existing posts + generate topic
+        self.fetch_existing_posts()
+        category, topic = self.step_0_generate_topic()
 
-        print(f"📁 Category: {category}")
+        print(f"\n📁 Category: {category}")
         print(f"📝 Topic: {topic}")
         print("-" * 60)
 
         self.conversation_history = []
 
-        # Step 1: Plan (medium effort - fast)
+        # Step 1: Plan
         plan = self.step_1_plan(topic)
         if not plan:
-            print("❌ Planning failed - aborting")
+            print("❌ Planning failed — aborting")
             return
 
-        print(f"   📌 Title: {plan['working_title']}")
+        title = plan['working_title']
+
+        # Final duplicate check on the planned title
+        if self.is_duplicate(title):
+            print(f"⚠️ Planned title is duplicate: {title}")
+            print("   Adjusting title...")
+            title = f"{title} — A Fresh Look"
+
+        print(f"   📌 Title: {title}")
         print(f"   💡 Angle: {plan['contrarian_angle']}")
 
-        # Step 2: Write (high effort - quality + format/tone)
+        # Step 2: Write
         draft = self.step_2_write_draft(plan)
         if not draft:
-            print("❌ Draft failed - aborting")
+            print("❌ Draft failed — aborting")
             return
 
-        # Step 3: Critique + Improve (max effort - deepest reasoning)
+        # Step 3: Critique + Improve
         improved = self.step_3_self_critique(draft)
         if not improved:
             improved = draft
 
-        # Step 4: Humanize (high effort - fresh perspective)
+        # Step 4: Humanize
         humanized = self.step_4_humanize(improved)
 
         # Step 5: Images
-        final_content = self.step_5_add_images(humanized)
+        with_images = self.step_5_add_images(humanized)
 
-        # Step 6: Publish
-        self.step_6_publish(
-            plan['working_title'],
-            final_content,
-            category,
-        )
+        # Step 6: Internal links
+        tags = [category.replace('_', ' ')]
+        tag_map = {
+            'APPROVAL': ['Guides', 'How-To', 'Research'],
+            'MONEY': ['Reviews', 'Comparisons', 'Tools'],
+        }
+        tags.extend(random.sample(tag_map.get(CURRENT_MODE, []), 2))
+
+        final_content = self.step_6_add_internal_links(with_images, title, tags)
+
+        # Step 7: Publish
+        self.step_7_publish(title, final_content, category)
 
         print("\n✅ Pipeline complete!")
 
 
 if __name__ == "__main__":
-    bot = ProBlogBotV3()
+    bot = ProBlogBotV4()
     bot.run()
