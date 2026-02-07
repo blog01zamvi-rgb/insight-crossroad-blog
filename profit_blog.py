@@ -10,6 +10,9 @@ Changelog from v3.1:
   - Internal linking: auto-inserts related post links for SEO
   - Expanded category coverage: business, finance, tech, science added
   - Smarter topic pool: fixed pool as fallback only, primary = dynamic
+  
+v4.0.1 Update:
+  - Model downgrade: Claude Opus 4.6 → 4.5 for cost optimization
 """
 
 import os
@@ -29,7 +32,7 @@ from anthropic import Anthropic
 # ==========================================
 
 CURRENT_MODE = os.getenv('BLOG_MODE', 'APPROVAL')
-CLAUDE_MODEL = os.getenv('CLAUDE_MODEL', 'claude-opus-4-6')
+CLAUDE_MODEL = os.getenv('CLAUDE_MODEL', 'claude-opus-4-5-20251101')
 
 # ==========================================
 # 🎭 PERSONA ROTATION
@@ -614,7 +617,7 @@ class ProBlogBotV4:
     # ------------------------------------------
 
     def _call_claude(self, messages, effort="high", max_tokens=4096, use_json_output=False, json_schema=None):
-        """Opus 4.6 API 호출"""
+        """Opus 4.5 API 호출"""
         kwargs = {
             "model": CLAUDE_MODEL,
             "max_tokens": max_tokens,
@@ -1245,8 +1248,8 @@ The edited HTML article only. No commentary. No markdown code blocks."""
         """메인 파이프라인"""
         print(f"""
 ╔═══════════════════════════════════════════════════════════════════╗
-║  Pro Blog Bot v4.0 - Anti-Pattern Edition                        ║
-║  Mode: {CURRENT_MODE:10s} | Model: {CLAUDE_MODEL:28s}       ║
+║  Pro Blog Bot v4.0.1 - Anti-Pattern Edition                      ║
+║  Mode: {CURRENT_MODE:10s} | Model: {CLAUDE_MODEL:28s}   ║
 ║  Persona: {self.persona['name']:12s} | Format: {self.writing_format['name']:15s}  ║
 ║  Tone: {self.tone['name']:15s}                                       ║
 ║  Features: Dedup · Dynamic Topics · Persona Rotation · Links     ║
