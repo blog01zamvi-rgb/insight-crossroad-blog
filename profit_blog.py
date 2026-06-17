@@ -543,23 +543,29 @@ class ProBlogBotV4:
     # API call helpers (Opus 4.5용 - adaptive thinking 제거)
     # ------------------------------------------
 
-    def _call_claude(self, messages, max_tokens=4096, use_json_output=False, json_schema=None):
-        """Opus 4.5 API 호출 (adaptive thinking 없음)"""
-        kwargs = {
-            "model": CLAUDE_MODEL,
-            "max_tokens": max_tokens,
-            "system": self.system_prompt,
-            "messages": messages,
-        }
+    def _call_claude(self, messages, max_tokens=4096):
+        """Opus 4.5 API 호출 (adaptive thinking 없음)
 
-        if use_json_output and json_schema:
-            kwargs["response_format"] = {
-                "type": "json_schema",
-                "json_schema": json_schema,
-            }
-
-        response = self.claude.messages.create(**kwargs)
+        주의: Anthropic SDK의 messages.create()는 OpenAI식 response_format 인자를
+        지원하지 않는다. 구조화 출력은 프롬프트로 'JSON만 반환'을 지시하고
+        _parse_json()으로 파싱한다.
+        """
+        response = self.claude.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=max_tokens,
+            system=self.system_prompt,
+            messages=messages,
+        )
         return response
+
+    def _parse_json(self, text):
+        """모델 응답에서 JSON 추출 (```json 코드블록 감싸도 처리)"""
+        text = text.strip()
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0]
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0]
+        return json.loads(text.strip())
 
     def _extract_text(self, response):
         """응답에서 텍스트 추출"""
@@ -590,26 +596,6 @@ class ProBlogBotV4:
         categories = CATEGORIES[CURRENT_MODE]
         category_str = "\n".join(f"- {k}: {v}" for k, v in categories.items())
 
-        topic_schema = {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "category": {
-                    "type": "string",
-                    "description": "위에 나열된 카테고리 키 중 하나 (한글 그대로)"
-                },
-                "topic_title": {
-                    "type": "string",
-                    "description": "구체적이고 끌리는 한국어 블로그 제목"
-                },
-                "why_this_topic": {
-                    "type": "string",
-                    "description": "이 주제가 독자를 끌 이유 한 문장"
-                }
-            },
-            "required": ["category", "topic_title", "why_this_topic"]
-        }
-
         prompt = f"""한국어 블로그 "인사이트 크로스로드"에 올릴 새 글 주제가 필요해요.
 
 ## 사용 가능한 카테고리
@@ -627,18 +613,19 @@ class ProBlogBotV4:
 - 기존 모든 제목과 확실히 다를 것
 - 제목에 "완벽 가이드", "총정리", "필수", "여러분" 같은 AI 티 나는 표현 금지
 
-주제 하나를 생성하세요. 스키마에 맞는 JSON만 반환하고, 마크다운 코드블록은 쓰지 마세요."""
+주제 하나를 생성하세요. 다음 키를 가진 JSON만 반환하세요(마크다운 코드블록 없이):
+- category (위 카테고리 키 중 하나, 한글 그대로)
+- topic_title (구체적이고 끌리는 한국어 제목)
+- why_this_topic (이 주제가 독자를 끌 이유 한 문장)"""
 
         try:
             response = self._call_claude(
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=1000,
-                use_json_output=True,
-                json_schema={"name": "topic_generation", "schema": topic_schema},
             )
 
             text = self._extract_text(response)
-            result = json.loads(text)
+            result = self._parse_json(text)
 
             topic = result['topic_title']
             category = result['category']
@@ -686,49 +673,6 @@ class ProBlogBotV4:
     def step_1_plan(self, topic):
         print(f"🧠 [1/7] 글 구성 짜는 중...")
 
-        plan_schema = {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "working_title": {
-                    "type": "string",
-                    "description": "구체적 이득을 약속하는 SEO 친화적 한국어 제목"
-                },
-                "hook_concept": {
-                    "type": "string",
-                    "description": "도입을 어떻게 열지 한 문장"
-                },
-                "contrarian_angle": {
-                    "type": "string",
-                    "description": "어떤 통념을 뒤집는가?"
-                },
-                "sections": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "header": {"type": "string"},
-                            "key_point": {"type": "string"},
-                            "research_element": {"type": "string"}
-                        },
-                        "required": ["header", "key_point", "research_element"]
-                    },
-                    "description": "자연스럽게 이어지는 3~5개 섹션"
-                },
-                "honest_caveat": {
-                    "type": "string",
-                    "description": "포함할 한계 또는 '이런 경우엔 안 맞음' 하나"
-                },
-                "image_queries": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Unsplash 검색용 시각 컨셉 2개 — 반드시 영어로 (예: 'office desk laptop', 'morning coffee notebook')"
-                }
-            },
-            "required": ["working_title", "hook_concept", "contrarian_angle", "sections", "honest_caveat", "image_queries"]
-        }
-
         prompt = f"""이 주제로 글을 써야 해요: "{topic}"
 
 생각해볼 것:
@@ -744,7 +688,13 @@ class ProBlogBotV4:
 
 중요: image_queries는 반드시 영어로 작성하세요. Unsplash가 한글 검색어를 못 알아듣습니다.
 
-스키마에 맞는 JSON만 반환하고, 마크다운 코드블록은 쓰지 마세요."""
+다음 키를 가진 JSON만 반환하세요(마크다운 코드블록 없이):
+- working_title (구체적 이득을 약속하는 SEO 친화적 한국어 제목)
+- hook_concept (도입을 어떻게 열지 한 문장)
+- contrarian_angle (어떤 통념을 뒤집는가)
+- sections (header, key_point, research_element를 가진 객체 3~5개 배열)
+- honest_caveat (한계 또는 '이런 경우엔 안 맞음' 하나)
+- image_queries (Unsplash 검색용 영어 문자열 2개)"""
 
         try:
             self._append_to_history("user", prompt)
@@ -752,13 +702,11 @@ class ProBlogBotV4:
             response = self._call_claude(
                 messages=self.conversation_history,
                 max_tokens=2000,
-                use_json_output=True,
-                json_schema={"name": "article_plan", "schema": plan_schema},
             )
 
             self._append_to_history("assistant", response)
             text = self._extract_text(response)
-            plan = json.loads(text)
+            plan = self._parse_json(text)
 
             if len(plan.get("image_queries", [])) < 2:
                 plan["image_queries"] = ["office desk workspace", "person taking notes"]
@@ -866,35 +814,52 @@ JSON만, 마크다운 코드블록 없이:"""
             print(f"⚠️ 작성 실패: {e}")
             return None
 
-    def step_3_self_critique(self, draft):
-        print(f"🔍 [3/7] 자가 검토 및 개선...")
+    def step_3_revise(self, draft):
+        """검토(critique) + 사람화(humanize)를 한 번의 호출로 통합.
 
-        critique_and_fix_prompt = f"""방금 쓴 초안을 검토하고, 개선된 버전을 만드세요.
+        기존엔 초안 → 검토 재작성 → 사람화 재작성으로 '전체 글 생성'을 3번 했다.
+        검토와 사람화는 목표(AI 티 제거·어미/문장 다양화)가 크게 겹치므로,
+        둘을 한 패스로 합쳐 전체 생성 1회를 줄인다(비용 약 1/3 절감, 품질 동등).
+        멀티턴 히스토리 대신 초안을 직접 임베드해 입력 토큰도 아낀다."""
+        print(f"🔧 [3/6] 검토·사람화 통합 개선...")
 
-## 검토 체크리스트 (가차없이)
-1. AI 티 한국어: "결론적으로", "정리하자면", "~하는 것이 중요합니다", "필수입니다", "여러분", "완벽 가이드", "총정리", "꼭 알아야 할" 같은 표현 없나?
-2. 어미 반복: "~합니다"로만 끝나는 문장이 연속으로 있나? 있으면 "~예요/~죠/~거든요/명사형"으로 섞어라.
-3. 지어낸 것: 가짜 통계, 가짜 경험, 만들어낸 출처 없나?
-4. 군더더기: 진짜 정보를 안 주는 문단 없나?
-5. 가치: 모든 섹션이 구체적이고 새로운 걸 알려주나?
-6. 톤 점검: 의도한 톤({self.tone['name']})에 맞나? 아니면 밋밋한 AI 말투로 흘렀나?
-7. 형식 점검: 의도한 형식({self.writing_format['name']})을 따르나?
-8. 도입 점검: "오늘은 ~에 대해" 같은 뻔한 도입이면 바꿔라.
-9. 문장 길이: 다 비슷한 길이면 공격적으로 섞어라.
+        revise_prompt = f"""아래 초안을 검토하고 고쳐서, 진짜 사람이 쓴 블로그 글로 다시 써주세요.
+한 번에 (1) 문제 교정과 (2) 사람 같은 문체를 모두 적용합니다.
 
-## 할 일
-모든 문제를 고쳐서 글 전체를 다시 쓰세요.
-개선된 HTML만 출력. 설명 금지. 마크다운 코드블록 금지."""
+## (1) 검토 체크리스트 — 가차없이 고칠 것
+1. AI 티 표현 제거: "결론적으로", "정리하자면", "~하는 것이 중요합니다", "필수입니다", "여러분", "완벽 가이드", "총정리", "꼭 알아야 할", "오늘은 ~에 대해" 같은 도입/마무리.
+2. 지어낸 것: 가짜 통계·수치·경험·출처 없애기. 출처 못 댈 구체 수치는 두루뭉술하게.
+3. 군더더기: 진짜 정보를 안 주는 문단, 했던 말 반복하는 문장 삭제.
+4. 가치: 모든 섹션이 구체적이고 새로운 걸 줘야 함.
+5. 톤 점검: 의도한 톤({self.tone['name']})에 맞게. 밋밋한 AI 말투로 흘렀으면 되살리기.
+6. 형식 점검: 의도한 형식({self.writing_format['name']})을 따르게.
 
-        self._append_to_history("user", critique_and_fix_prompt)
+## (2) 사람 같은 문체 — 동시에 적용
+- 어미 섞기: "~합니다"만 반복 금지. ~요/~죠/~거든요/명사형 종결을 섞어 리듬을. 같은 어미 3연속 금지.
+- 문장 길이 다양화: 짧은 문장(2~5어절)과 긴 문장을 섞기. 명사로 끝나는 문장도 가끔.
+- 4문장 넘는 문단은 쪼개기. 섹션 길이가 다 똑같으면 하나는 짧게/길게.
+- 딱딱한 단어 완화: "활용하다"→"쓰다", "구매하다"→"사다".
+- 뻔한 도입은 구체적인 말 걸기로 교체.
+
+## 하지 말 것
+- 사실·주장·정보의 의미를 바꾸지 말 것
+- 가짜 개인 경험 추가 금지
+- 이모지·느낌표 추가 금지
+- 전체 구조(섹션 개수·순서) 바꾸지 말 것
+- [IMAGE: ...] 마커 절대 삭제·이동 금지
+
+## 초안
+{draft}
+
+## 출력
+개선된 HTML 글만. 설명·인사말 금지. 마크다운 코드블록 금지."""
 
         try:
             response = self._call_claude(
-                messages=self.conversation_history,
+                messages=[{"role": "user", "content": revise_prompt}],
                 max_tokens=8000,
             )
 
-            self._append_to_history("assistant", response)
             improved = self._extract_text(response)
             result = self.validator.sanitize_html(improved)
 
@@ -905,56 +870,8 @@ JSON만, 마크다운 코드블록 없이:"""
             return result
 
         except Exception as e:
-            print(f"⚠️ 검토 실패: {e}")
+            print(f"⚠️ 검토·사람화 실패: {e}")
             return draft
-
-    def step_4_humanize(self, content):
-        print(f"🧑 [4/7] 사람 손길 추가...")
-
-        humanize_prompt = f"""당신은 작가가 아니라 사람 편집자입니다. 이 글이 AI 결과물이 아니라 진짜 사람의 블로그 글처럼 읽히도록 작은 수정을 하세요.
-
-## 할 일
-- 문장 길이를 더 다양하게. 5어절 문장과 25어절 문장을 섞기.
-- 4문장 넘는 문단은 쪼개기.
-- 도입이 뻔하면 잘라내거나 구체적인 걸로 교체.
-- 딱딱한 단어를 편한 걸로: "활용하다"→"쓰다", "구매하다"→"사다".
-- 어미를 더 섞기: "~합니다"가 반복되면 "~예요/~죠/~거든요"로.
-- 짧은 문장 1~2개 넣기. 명사로 끝나도 됨.
-- 섹션 사이 전환이 다 매끄럽지 않게.
-- 모든 섹션이 비슷한 길이면 하나를 더 짧게/길게.
-- 이미 한 말을 다시 하는 문장은 삭제.
-
-## 하지 말 것
-- 사실이나 주장을 바꾸지 말 것
-- 가짜 개인 경험 추가 금지
-- 이모지나 느낌표 추가 금지
-- 전체 구조 바꾸지 말 것
-- [IMAGE: ...] 마커 삭제 금지
-
-## 입력 글
-{content}
-
-## 출력
-편집된 HTML 글만. 설명 금지. 마크다운 코드블록 금지."""
-
-        try:
-            response = self._call_claude(
-                messages=[{"role": "user", "content": humanize_prompt}],
-                max_tokens=8000,
-            )
-
-            result = self._extract_text(response)
-            result = self.validator.sanitize_html(result)
-
-            if len(result) < 500:
-                print("   ⚠️ 사람화 버전이 너무 짧음, 이전 버전 사용")
-                return content
-
-            return result
-
-        except Exception as e:
-            print(f"⚠️ 사람화 실패: {e}")
-            return content
 
     def step_5_add_images(self, content):
         print(f"🎨 [5/7] 이미지 추가...")
@@ -1178,12 +1095,11 @@ JSON만, 마크다운 코드블록 없이:"""
             print("❌ 초안 실패 — 중단")
             return
 
-        improved = self.step_3_self_critique(draft)
+        improved = self.step_3_revise(draft)
         if not improved:
             improved = draft
 
-        humanized = self.step_4_humanize(improved)
-        with_images = self.step_5_add_images(humanized)
+        with_images = self.step_5_add_images(improved)
 
         tags = [category]
         tag_map = {
